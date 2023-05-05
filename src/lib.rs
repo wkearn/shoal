@@ -12,10 +12,11 @@ use std::rc::Rc;
 fn apply(e: &Expr, args: &[Rc<Expr>]) -> Result<Rc<Expr>, Error> {
     match e {
         Expr::PrimitiveFunc(f) => f(args).map(Rc::new),
-	Expr::Func {params, body, env} => {
-	    env.borrow_bindings().extend(params.iter().cloned().zip(args.iter().cloned()));
-	    eval(body,env)
-	}
+        Expr::Func { params, body, env } => {
+            env.borrow_bindings()
+                .extend(params.iter().cloned().zip(args.iter().cloned()));
+            eval(body, env)
+        }
         _ => Err(Error::SyntaxError(format!(
             "head of call expression must be a function"
         ))),
@@ -37,42 +38,40 @@ fn eval(e: &Expr, env: &Env) -> Result<Rc<Expr>, Error> {
                 .ok_or(Error::SyntaxError(format!("List needs a head")))?;
 
             match head {
-                Expr::Atom(h) => {
-                    match h.as_str() {
-                        "if" => {
-                            let pred = vs
-                                .get(1)
-                                .ok_or(Error::SyntaxError(format!("if requires a predicate")))?;
-                            let conseq = vs
-                                .get(2)
-                                .ok_or(Error::SyntaxError(format!("if requires a consequent")))?;
-                            let alt = vs
-                                .get(3)
-                                .ok_or(Error::SyntaxError(format!("if requires an alternative")))?;
-                            match *eval(pred, env)? {
-                                Expr::Boolean(true) => eval(conseq, env),
-                                Expr::Boolean(false) => eval(alt, env),
-                                _ => Err(Error::SyntaxError(format!(
-                                    "predicate must evaluate to a Boolean"
-                                ))),
-                            }
-                        }
-                        "quote" => vs
-                            .get(1)
-                            .map(|v| v.clone())
-                            .ok_or(Error::SyntaxError(format!("quote requires an expression"))),
-                        "begin" => {
-                            let mut expr = vs
-                                .iter()
-                                .skip(1)
-                                .map(|v| eval(v, env))
-                                .collect::<Result<Vec<Rc<Expr>>, Error>>()?;
-                            expr.pop().ok_or(Error::SyntaxError(format!(
-                                "begin requires at least one expression"
-                            )))
-                        }
-                        "define" => {
-                            let var: &Expr = vs.get(1).ok_or(Error::SyntaxError(format!(
+                Expr::Atom(h) if h.as_str() == "if" => {
+                    let pred = vs
+                        .get(1)
+                        .ok_or(Error::SyntaxError(format!("if requires a predicate")))?;
+                    let conseq = vs
+                        .get(2)
+                        .ok_or(Error::SyntaxError(format!("if requires a consequent")))?;
+                    let alt = vs
+                        .get(3)
+                        .ok_or(Error::SyntaxError(format!("if requires an alternative")))?;
+                    match *eval(pred, env)? {
+                        Expr::Boolean(true) => eval(conseq, env),
+                        Expr::Boolean(false) => eval(alt, env),
+                        _ => Err(Error::SyntaxError(format!(
+                            "predicate must evaluate to a Boolean"
+                        ))),
+                    }
+                }
+                Expr::Atom(h) if h.as_str() == "quote" => vs
+                    .get(1)
+                    .map(|v| v.clone())
+                    .ok_or(Error::SyntaxError(format!("quote requires an expression"))),
+                Expr::Atom(h) if h.as_str() == "begin" => {
+                    let mut expr = vs.iter().skip(1).map(|v| eval(v, env)).collect::<Result<
+                        Vec<Rc<Expr>>,
+                        Error,
+                    >>(
+                    )?;
+                    expr.pop().ok_or(Error::SyntaxError(format!(
+                        "begin requires at least one expression"
+                    )))
+                }
+		Expr::Atom(h) if h.as_str() == "define" => {
+		    let var: &Expr = vs.get(1).ok_or(Error::SyntaxError(format!(
                                 "define requires a variable identifier"
                             )))?;
                             let val = vs
@@ -90,10 +89,9 @@ fn eval(e: &Expr, env: &Env) -> Result<Rc<Expr>, Error> {
                                     "variable identifier should be an Atom"
                                 ))),
                             }
-                        }
-                        // (lambda (x y z) (* (+ x y) z))
-                        "lambda" => {
-                            let params: &Expr = vs.get(1).ok_or(Error::SyntaxError(format!(
+		}
+		Expr::Atom(h) if h.as_str() == "lambda" => {
+		    let params: &Expr = vs.get(1).ok_or(Error::SyntaxError(format!(
                                 "lambda requires a list of params"
                             )))?;
                             if let Expr::List(ps) = params {
@@ -105,9 +103,11 @@ fn eval(e: &Expr, env: &Env) -> Result<Rc<Expr>, Error> {
                                     .ok_or(Error::SyntaxError(format!("lambda requires a body")))?
                                     .clone();
 
-				
-				let new_env = Env::new(Rc::new(Scope::new(RefCell::new(HashMap::new()),Some(env.clone()))));
-				
+                                let new_env = Env::new(Rc::new(Scope::new(
+                                    RefCell::new(HashMap::new()),
+                                    Some(env.clone()),
+                                )));
+
                                 Ok(Rc::new(Expr::Func {
                                     params: ps,
                                     body,
@@ -118,33 +118,19 @@ fn eval(e: &Expr, env: &Env) -> Result<Rc<Expr>, Error> {
                                     "lambda params should be a list"
                                 )))
                             }
-                        }
-                        _ => {
-                            // eval head
-                            let func: Rc<Expr> = eval(head, env)?;
-                            // eval the rest of the args
-                            let args = vs.iter().skip(1).map(|v| eval(v, env)).collect::<Result<
-                                Vec<Rc<Expr>>,
-                                Error,
-                            >>(
-                            )?;
-
-                            apply(&func, &args[..])
-                        }
-                    }
-                },
-                _ => {
-		    // eval head
+		}
+                _ => {                
+                    // eval head
                     let func: Rc<Expr> = eval(head, env)?;
                     // eval the rest of the args
-                    let args = vs.iter().skip(1).map(|v| eval(v, env)).collect::<Result<
-                            Vec<Rc<Expr>>,
-                        Error,
-                        >>(
-                    )?;
-		    
+                    let args = vs
+                        .iter()
+                        .skip(1)
+                        .map(|v| eval(v, env))
+                        .collect::<Result<Vec<Rc<Expr>>, Error>>()?;
+
                     apply(&func, &args[..])
-		},
+                }
             }
         }
         Expr::PrimitiveFunc(_) => Err(Error::SyntaxError(format!(
