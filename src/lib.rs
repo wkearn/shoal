@@ -9,9 +9,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-// The key insight here is that the lifetime of the slice is only the apply function
-// whereas the lifetime of the contained expressions is the same of that of the
-// environment/AST. Thus we need two separate lifetime parameters
 fn apply(e: &Expr, args: &[Rc<Expr>]) -> Result<Rc<Expr>, Error> {
     match e {
         Expr::PrimitiveFunc(f) => f(args).map(Rc::new),
