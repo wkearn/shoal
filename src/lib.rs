@@ -1,9 +1,13 @@
+pub mod ast;
+pub mod env;
 pub mod error;
 pub mod ops;
 pub mod parser;
 
 use error::Error;
-use parser::{Env, Expr, Scope};
+
+use env::{Env, Scope};
+use ast::Expr;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
