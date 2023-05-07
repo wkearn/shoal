@@ -12,6 +12,8 @@ pub enum NumericBinaryOp {
     GreaterThanOrEqual,
     LessThan,
     LessThanOrEqual,
+    Min,
+    Max,
 }
 
 impl NumericBinaryOp {
@@ -33,6 +35,8 @@ impl NumericBinaryOp {
                     NumericBinaryOp::GreaterThanOrEqual => Ok(Expr::Boolean(x >= y)),
                     NumericBinaryOp::LessThan => Ok(Expr::Boolean(x < y)),
                     NumericBinaryOp::LessThanOrEqual => Ok(Expr::Boolean(x <= y)),
+                    NumericBinaryOp::Min => Ok(Expr::Number(x.min(y))),
+                    NumericBinaryOp::Max => Ok(Expr::Number(x.max(y))),
                 }
             } else {
                 Err(Error::SyntaxError(format!(

@@ -70,56 +70,58 @@ fn eval(e: &Expr, env: &Env) -> Result<Rc<Expr>, Error> {
                         "begin requires at least one expression"
                     )))
                 }
-		Expr::Atom(h) if h.as_str() == "define" => {
-		    let var: &Expr = vs.get(1).ok_or(Error::SyntaxError(format!(
-                                "define requires a variable identifier"
-                            )))?;
-                            let val = vs
-                                .get(2)
-                                .ok_or(Error::SyntaxError(format!("define requires a value")))?;
-                            let vale = eval(val, env)?;
-                            match var {
-                                Expr::Atom(v) => {
-                                    env.insert(v.to_string(), vale);
-                                    env.get(v).map(|res| res.clone()).ok_or(Error::SyntaxError(
-                                        format!("Variable failed to set properly"),
-                                    ))
-                                }
-                                _ => Err(Error::SyntaxError(format!(
-                                    "variable identifier should be an Atom"
-                                ))),
-                            }
-		}
-		Expr::Atom(h) if h.as_str() == "lambda" => {
-		    let params: &Expr = vs.get(1).ok_or(Error::SyntaxError(format!(
-                                "lambda requires a list of params"
-                            )))?;
-                            if let Expr::List(ps) = params {
-                                // Get strings from params. This might get a little weird if each ps is
-                                // not an Atom
-                                let ps: Vec<String> = ps.iter().map(|p| p.to_string()).collect();
-                                let body: Rc<Expr> = vs
-                                    .get(2)
-                                    .ok_or(Error::SyntaxError(format!("lambda requires a body")))?
-                                    .clone();
-
-                                let new_env = Env::new(Rc::new(Scope::new(
-                                    RefCell::new(HashMap::new()),
-                                    Some(env.clone()),
-                                )));
-
-                                Ok(Rc::new(Expr::Func {
-                                    params: ps,
-                                    body,
-                                    env: new_env,
-                                }))
-                            } else {
-                                Err(Error::SyntaxError(format!(
-                                    "lambda params should be a list"
+                Expr::Atom(h) if h.as_str() == "define" => {
+                    let var: &Expr = vs.get(1).ok_or(Error::SyntaxError(format!(
+                        "define requires a variable identifier"
+                    )))?;
+                    let val = vs
+                        .get(2)
+                        .ok_or(Error::SyntaxError(format!("define requires a value")))?;
+                    let vale = eval(val, env)?;
+                    match var {
+                        Expr::Atom(v) => {
+                            env.insert(v.to_string(), vale);
+                            env.get(v)
+                                .map(|res| res.clone())
+                                .ok_or(Error::SyntaxError(format!(
+                                    "Variable failed to set properly"
                                 )))
-                            }
-		}
-                _ => {                
+                        }
+                        _ => Err(Error::SyntaxError(format!(
+                            "variable identifier should be an Atom"
+                        ))),
+                    }
+                }
+                Expr::Atom(h) if h.as_str() == "lambda" => {
+                    let params: &Expr = vs.get(1).ok_or(Error::SyntaxError(format!(
+                        "lambda requires a list of params"
+                    )))?;
+                    if let Expr::List(ps) = params {
+                        // Get strings from params. This might get a little weird if each ps is
+                        // not an Atom
+                        let ps: Vec<String> = ps.iter().map(|p| p.to_string()).collect();
+                        let body: Rc<Expr> = vs
+                            .get(2)
+                            .ok_or(Error::SyntaxError(format!("lambda requires a body")))?
+                            .clone();
+
+                        let new_env = Env::new(Rc::new(Scope::new(
+                            RefCell::new(HashMap::new()),
+                            Some(env.clone()),
+                        )));
+
+                        Ok(Rc::new(Expr::Func {
+                            params: ps,
+                            body,
+                            env: new_env,
+                        }))
+                    } else {
+                        Err(Error::SyntaxError(format!(
+                            "lambda params should be a list"
+                        )))
+                    }
+                }
+                _ => {
                     // eval head
                     let func: Rc<Expr> = eval(head, env)?;
                     // eval the rest of the args
@@ -191,6 +193,18 @@ pub fn run() -> Result<(), Error> {
             "<=".to_string(),
             Rc::new(Expr::PrimitiveFunc(Box::new(|args| {
                 ops::NumericBinaryOp::LessThanOrEqual.apply(args)
+            }))),
+        );
+        map.insert(
+            "min".to_string(),
+            Rc::new(Expr::PrimitiveFunc(Box::new(|args| {
+                ops::NumericBinaryOp::Min.apply(args)
+            }))),
+        );
+        map.insert(
+            "max".to_string(),
+            Rc::new(Expr::PrimitiveFunc(Box::new(|args| {
+                ops::NumericBinaryOp::Max.apply(args)
             }))),
         );
         map.insert(
