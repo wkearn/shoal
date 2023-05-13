@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use crate::error::Error;
 use crate::env::Env;
+use crate::error::Error;
 
 pub enum Expr {
     Atom(String),

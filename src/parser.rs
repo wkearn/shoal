@@ -1,5 +1,5 @@
-use crate::error::Error;
 use crate::ast::Expr;
+use crate::error::Error;
 
 use std::rc::Rc;
 
@@ -38,8 +38,6 @@ pub fn lex(s: &str) -> Vec<Result<Token, Error>> {
 }
 
 // Parsing
-
-
 
 fn parse_token<I>(tokens: &mut std::iter::Peekable<I>) -> Result<Expr, Error>
 where

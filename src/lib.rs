@@ -6,8 +6,8 @@ pub mod parser;
 
 use error::Error;
 
-use env::{Env, Scope};
 use ast::Expr;
+use env::{Env, Scope};
 
 use std::cell::RefCell;
 use std::collections::HashMap;

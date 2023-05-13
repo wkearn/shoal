@@ -1,5 +1,5 @@
-use crate::error::Error;
 use crate::ast::Expr;
+use crate::error::Error;
 
 use std::rc::Rc;
 

@@ -1,6 +1,6 @@
-use std::rc::{Rc};
-use std::cell::{RefCell,RefMut};
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::ast::Expr;
 
@@ -20,11 +20,11 @@ impl Env {
     }
 
     pub fn clone(&self) -> Self {
-	Self(self.0.clone())
+        Self(self.0.clone())
     }
 
-    pub fn borrow_bindings(&self) -> RefMut<'_,HashMap<String,Rc<Expr>>> {
-	self.0.bindings.borrow_mut()
+    pub fn borrow_bindings(&self) -> RefMut<'_, HashMap<String, Rc<Expr>>> {
+        self.0.bindings.borrow_mut()
     }
 }
 
