@@ -1,5 +1,6 @@
 pub mod error;
 pub mod parser;
+pub mod types;
 
 use crate::error::Error;
 

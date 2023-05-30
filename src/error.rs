@@ -4,6 +4,7 @@ pub enum Error {
     ParseError,
     SyntaxError(String),
     UndefinedVariableError(String),
+    TypeError(String),
 }
 
 impl std::fmt::Display for Error {
@@ -13,6 +14,7 @@ impl std::fmt::Display for Error {
             Error::ParseError => write!(f, "Parse error"),
             Error::SyntaxError(s) => write!(f, "Syntax error: {}", s),
             Error::UndefinedVariableError(v) => write!(f, "Error: variable {} is not defined", v),
+            Error::TypeError(s) => write!(f, "Type error: {}", s),
         }
     }
 }
