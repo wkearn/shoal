@@ -103,6 +103,7 @@ impl TypeEnv {
 }
 
 /// A type substitution maps type variables to type schemes
+#[derive(Debug,Default)]
 pub struct TypeSubstitution {
     fresh_vars: u32,
     substitution: HashMap<Box<str>, Type>,
@@ -110,6 +111,10 @@ pub struct TypeSubstitution {
 }
 
 impl TypeSubstitution {
+
+    fn new() -> Self {
+	Self::default()
+    }
     /// Generate a fresh type variable with no overloading constraints
     fn genvar(&mut self) -> Type {
         self.genvar_with_ops(None)
@@ -155,59 +160,71 @@ impl TypeSubstitution {
     }
 
     fn is_valid_overloading(&self, xs: &HashSet<Box<str>>, t: &Type) -> bool {
-	match t {
-	    Type::TypeVar(_,_) => false,
-	    Type::Function(_,_) => xs.is_empty(),
-	    Type::BinaryFunction(_,_,_) => xs.is_empty(),
-	    Type::Array(_) => xs.is_empty(),
-	    Type::Boolean => {
-		for x in xs.iter() {
-		    match self.overloads.get(x) {
-			Some(ts) => {if !ts.contains(&"Boolean".into()) { return false; } }			
-			None => {return false}
-		    }
-		}
-		return true;
-	    }
-	    Type::Integer => {
-		for x in xs.iter() {
-		    match self.overloads.get(x) {
-			Some(ts) => {if !ts.contains(&"Integer".into()) { return false; } }			
-			None => {return false}
-		    }
-		}
-		return true;
-	    }
-	    Type::Float64 => {
-		for x in xs.iter() {
-		    match self.overloads.get(x) {
-			Some(ts) => {if !ts.contains(&"Integer".into()) { return false; } }			
-			None => {return false}
-		    }
-		}
-		return true;
-	    }
-	}
+        match t {
+            Type::TypeVar(_, _) => false,
+            Type::Function(_, _) => xs.is_empty(),
+            Type::BinaryFunction(_, _, _) => xs.is_empty(),
+            Type::Array(_) => xs.is_empty(),
+            Type::Boolean => {
+                for x in xs.iter() {
+                    match self.overloads.get(x) {
+                        Some(ts) => {
+                            if !ts.contains(&"Boolean".into()) {
+                                return false;
+                            }
+                        }
+                        None => return false,
+                    }
+                }
+                return true;
+            }
+            Type::Integer => {
+                for x in xs.iter() {
+                    match self.overloads.get(x) {
+                        Some(ts) => {
+                            if !ts.contains(&"Integer".into()) {
+                                return false;
+                            }
+                        }
+                        None => return false,
+                    }
+                }
+                return true;
+            }
+            Type::Float64 => {
+                for x in xs.iter() {
+                    match self.overloads.get(x) {
+                        Some(ts) => {
+                            if !ts.contains(&"Integer".into()) {
+                                return false;
+                            }
+                        }
+                        None => return false,
+                    }
+                }
+                return true;
+            }
+        }
     }
-    
-    fn cs(&mut self,xs: &HashSet<Box<str>>, right: &Type) -> Result<(),Error> {
-	match right {
-	    Type::TypeVar(alpha,ops) => {
-		let beta = self.genvar_with_ops(ops.union(xs).cloned());
-		self.substitution.insert(alpha.clone(),beta);
-		Ok(())
-	    }
-	    _ => {
-		if self.is_valid_overloading(xs,right) {
-		    Ok(())
-		} else {
-		    Err(Error::TypeError(format!(
+
+    fn cs(&mut self, xs: &HashSet<Box<str>>, right: &Type) -> Result<(), Error> {
+        match right {
+            Type::TypeVar(alpha, ops) => {
+                let beta = self.genvar_with_ops(ops.union(xs).cloned());
+                self.substitution.insert(alpha.clone(), beta);
+                Ok(())
+            }
+            _ => {
+                if self.is_valid_overloading(xs, right) {
+                    Ok(())
+                } else {
+                    Err(Error::TypeError(format!(
                         "Invalid overloading of {{{}}} with {right}",
                         xs.iter().cloned().collect::<Vec<Box<str>>>().join(",")
                     )))
-		}
-	    }
-	}
+                }
+            }
+        }
     }
 
     /// Unify the left and right types in the given substitution
@@ -246,25 +263,58 @@ impl TypeSubstitution {
                     .unify(arg00, arg10)
                     .and_then(|_| self.unify(arg01, arg11))
                     .and_then(|_| self.unify(body0, body1)),
-		_ => Err(Error::TypeError(format!("{left} != {right}"))),
+                _ => Err(Error::TypeError(format!("{left} != {right}"))),
             },
-	    Type::TypeVar(x,ops) => {
-		if left == right {
-		    Ok(())
-		} else if left.occurs_check(right) {
-		    Err(Error::TypeError(format!("Recursive type found: {left} == {right}")))
-		} else {
-		    // Substitute the right variable to make sure that it is reduced as far as possible
-		    let new_right = self.get(right);
-		    self.cs(ops,&new_right)?;
-		    self.substitution.insert(x.clone(), new_right);
-		    Ok(())
-		}
-	    }
+            Type::TypeVar(x, ops) => {
+                if left == right {
+                    Ok(())
+                } else if left.occurs_check(right) {
+                    Err(Error::TypeError(format!(
+                        "Recursive type found: {left} == {right}"
+                    )))
+                } else {
+                    // Substitute the right variable to make sure that it is reduced as far as possible
+                    let new_right = self.get(right);
+                    self.cs(ops, &new_right)?;
+                    self.substitution.insert(x.clone(), new_right);
+                    Ok(())
+                }
+            }
         }
     }
-}
+    pub fn reconstruct(&mut self, expr: &Expr, env: &TypeEnv) -> Result<Type, Error> {
+        match expr {
+            Expr::BooleanLiteral(_) => Ok(Type::Boolean),
+            Expr::IntegerLiteral(_) => Ok(Type::Integer),
+            Expr::FloatLiteral(_) => Ok(Type::Float64),
+            Expr::Identifier(s) => {
+                let x = env.0
+                    .get(s)
+                    .ok_or(Error::UndefinedVariableError(format!("{s}")))?;
 
-pub fn reconstruct(expr: &Expr, env: &TypeEnv) -> Result<Type, Error> {
-    Err(Error::TypeError("Type inference failed".into()))
+		match x {
+		    TypeScheme::PlainType(t) => Ok(t.clone()),			
+		    TypeScheme::QuantifiedType(vs,t) => {
+			let mut local_sub = TypeSubstitution::new();
+			for v in vs {
+			    // TODO: instantiate TypeVars with appropriate ops for each v in vs
+			    local_sub.substitution.insert(v.clone(),self.genvar_with_ops(None));
+			}
+			let tt = local_sub.get(t);
+			Ok(tt)
+		    }
+		}
+            }
+	    Expr::Lambda(arg,body) => todo!(),
+	    Expr::BinLambda(arg0,arg1,body) => todo!(),
+	    Expr::App(fun,arg) => todo!(),
+	    Expr::BinApp(fun,arg0,arg1) => todo!(),
+	    Expr::Let(arg,def,body) => todo!(),
+	    Expr::If(pred,conseq,alt) => todo!(),
+	    Expr::Map(fun, arg) => todo!(),
+	    Expr::Reduce(fun,init,arg) => todo!(),
+	    Expr::Scan(fun,init,arg) => todo!(),
+	    Expr::Iota(n) => todo!()
+        }
+    }
 }
