@@ -451,6 +451,7 @@ impl TypeSubstitution {
                 Ok(self.get(&body_type))
             }
             Expr::App(fun, arg) => {
+		// (f:(a -> b) arg: a):b
 		let ft = self.reconstruct(fun,env)?;
 		println!("Function {ft}");
 		let at = self.reconstruct(arg,env)?;
@@ -489,12 +490,68 @@ impl TypeSubstitution {
 		self.unify(&ct,&at)?;		
 
 		// Does it matter whether we return ct or at?
-		Ok(at)
+		Ok(self.get(&at))
 	    },
-            Expr::Map(fun, arg) => todo!(),
-            Expr::Reduce(fun, init, arg) => todo!(),
-            Expr::Scan(fun, init, arg) => todo!(),
-            Expr::Iota(n) => todo!(),
+            Expr::Map(fun, arg) => {
+		// map: ∀a b . (a -> b) -> [a] -> [b]
+		let ft = self.reconstruct(fun,env)?;
+		let at = self.reconstruct(arg,env)?;
+		match &at {
+		    Type::Array(arr_type) => {
+			let rt = self.genvar();
+			let tt = Type::Function(arr_type.clone(),Box::new(rt.clone()));
+			self.unify(&ft,&tt)?;
+			Ok(Type::Array(Box::new(self.get(&rt))))
+		    }
+		    _ => Err(Error::TypeError(format!("map expected array, got {at}")))
+		}		
+	    },
+            Expr::Reduce(fun, init, arg) => {
+		// reduce: ∀ a b . (b x a -> b) -> b -> [a] -> b
+
+		let ft = self.reconstruct(fun,env)?;
+		let it = self.reconstruct(init,env)?;
+		let at = self.reconstruct(arg,env)?;
+
+		match &at {
+		    Type::Array(arr_type) => {
+			let rt = self.genvar();
+			let tt = Type::BinaryFunction(Box::new(rt.clone()),arr_type.clone(),Box::new(rt.clone()));
+
+			self.unify(&ft,&tt)?;
+			self.unify(&it,&rt)?;
+
+			Ok(self.get(&rt))
+		    }
+		    _ => Err(Error::TypeError(format!("reduce expected array, got {at}")))
+		}
+	    },
+            Expr::Scan(fun, init, arg) => {
+		// scan: ∀ a b . (b x a -> b) -> b -> [a] -> b
+
+		let ft = self.reconstruct(fun,env)?;
+		let it = self.reconstruct(init,env)?;
+		let at = self.reconstruct(arg,env)?;
+
+		match &at {
+		    Type::Array(arr_type) => {
+			let rt = self.genvar();
+			let tt = Type::BinaryFunction(Box::new(rt.clone()),arr_type.clone(),Box::new(rt.clone()));
+
+			self.unify(&ft,&tt)?;
+			self.unify(&it,&rt)?;
+
+			Ok(Type::Array(Box::new(self.get(&rt))))
+		    }
+		    _ => Err(Error::TypeError(format!("reduce expected array, got {at}")))
+		}
+	    },
+            Expr::Iota(n) => {
+		let nt = self.reconstruct(n,env)?;
+		self.unify(&nt,&Type::Integer)?;
+
+		Ok(Type::Array(Box::new(Type::Integer)))
+	    },
         }
     }
 }
@@ -597,12 +654,31 @@ mod test {
     
     #[test]
     fn test3() {
-	let expr = parser::parse(&"(reduce (lambda (u v) v) 0 (iota n))".parse::<SExpr>().unwrap()).unwrap();
+	let expr = parser::parse(&"(reduce (lambda (u v) v) 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
 
 	let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
 	assert_eq!(t,Type::Integer);
+
+	let expr = parser::parse(&"(scan (lambda (u v) v) 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+
+	let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+	assert_eq!(t,Type::Array(Box::new(Type::Integer)))
+    }
+
+    #[test]
+    fn test4() {
+	let expr = parser::parse(&"(map (lambda (u) true) (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+
+	let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+	assert_eq!(t,Type::Array(Box::new(Type::Boolean)));
     }
 }
