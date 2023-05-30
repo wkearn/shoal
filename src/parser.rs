@@ -19,6 +19,7 @@ pub enum Expr {
     If(Box<Expr>, Box<Expr>, Box<Expr>),
     Map(Box<Expr>, Box<Expr>),
     Reduce(Box<Expr>, Box<Expr>, Box<Expr>),
+    Scan(Box<Expr>,Box<Expr>,Box<Expr>),
     Iota(Box<Expr>),
 }
 
@@ -37,6 +38,7 @@ impl std::fmt::Display for Expr {
             Expr::If(cond, conseq, alt) => write!(f, "(if {cond} {conseq} {alt})"),
             Expr::Map(fun, arr) => write!(f, "(map {fun} {arr})"),
             Expr::Reduce(fun, init, arr) => write!(f, "(reduce {fun} {init} {arr})"),
+	    Expr::Scan(fun, init, arr) => write!(f, "(scan {fun} {init} {arr})"),	    
             Expr::Iota(n) => write!(f, "(iota {n})"),
         }
     }
@@ -222,6 +224,28 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
                                 Ok(Expr::Reduce(Box::new(fun), Box::new(init), Box::new(arr)))
                             } else {
                                 Err(Error::SyntaxError(format!("[{start_pos}]: reduce statement expects three expressions: (reduce f init arg)")))
+                            }
+                        }
+			"scan" => {
+                            if vs.len() == 4 {
+                                let fun = vs.get(1).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: scan statement expects a function: (scan f init arg)"
+                                )))?;
+                                let fun = parse(fun)?;
+
+                                let init = vs.get(2).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: scan statement expects an initial value: (scan f init arg)"
+                                )))?;
+                                let init = parse(init)?;
+
+                                let arr = vs.get(3).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: scan statement expects an argument: (scan f init arg)"
+                                )))?;
+                                let arr = parse(arr)?;
+
+                                Ok(Expr::Scan(Box::new(fun), Box::new(init), Box::new(arr)))
+                            } else {
+                                Err(Error::SyntaxError(format!("[{start_pos}]: scan statement expects three expressions: (scan f init arg)")))
                             }
                         }
                         "iota" => {
