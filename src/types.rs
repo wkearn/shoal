@@ -53,6 +53,43 @@ impl Type {
             false
         }
     }
+
+    fn free_vars(&self) -> HashSet<Box<str>> {
+        match self {
+            Type::Boolean => HashSet::new(),
+            Type::Integer => HashSet::new(),
+            Type::Float64 => HashSet::new(),
+            Type::TypeVar(s, ops) => {
+                let mut fvs = HashSet::new();
+                fvs.insert(s.clone());
+                fvs
+            }
+            Type::Array(body) => body.free_vars(),
+            Type::Function(arg, body) => {
+                let mut u = arg.free_vars();
+                let v = body.free_vars();
+                u.extend(v);
+                u
+            }
+            Type::BinaryFunction(arg0, arg1, body) => {
+                let mut u = arg0.free_vars();
+                let v = arg1.free_vars();
+                let w = body.free_vars();
+                u.extend(v);
+                u.extend(w);
+                u
+            }
+        }
+    }
+
+    fn generalize(self, env: &TypeEnv) -> TypeScheme {
+        let fvs = self
+            .free_vars()
+            .difference(&env.free_vars())
+            .cloned()
+            .collect();
+        TypeScheme::QuantifiedType(fvs, self)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,6 +128,13 @@ impl TypeScheme {
             false
         }
     }
+
+    fn free_vars(&self) -> HashSet<Box<str>> {
+        match self {
+            TypeScheme::PlainType(t) => t.free_vars(),
+            TypeScheme::QuantifiedType(fvs, t) => t.free_vars().difference(fvs).cloned().collect(),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -99,6 +143,14 @@ pub struct TypeEnv(HashMap<Box<str>, TypeScheme>);
 impl TypeEnv {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn free_vars(&self) -> HashSet<Box<str>> {
+        let mut fvs = HashSet::new();
+        for t in self.0.values() {
+            fvs.extend(t.free_vars().into_iter());
+        }
+        fvs
     }
 }
 
@@ -367,9 +419,29 @@ impl TypeSubstitution {
                     Box::new(new_body),
                 ))
             }
+            Expr::Let(arg, def, body) => {
+                // Reconstruct the principal type of def
+                let t1 = self.reconstruct(def, env)?;
+                let t1 = self.get(&t1);
+
+                // Generalize over the free variables in t1
+                let t1 = t1.generalize(env);
+
+                // Extend environment with arg -> t1
+                let body_type = {
+                    let mut local_env = TypeEnv::new();
+                    local_env
+                        .0
+                        .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+                    local_env.0.insert(arg.clone(), t1);
+
+                    self.reconstruct(body, &local_env)?
+                };
+
+                Ok(self.get(&body_type))
+            }
             Expr::App(fun, arg) => todo!(),
             Expr::BinApp(fun, arg0, arg1) => todo!(),
-            Expr::Let(arg, def, body) => todo!(),
             Expr::If(pred, conseq, alt) => todo!(),
             Expr::Map(fun, arg) => todo!(),
             Expr::Reduce(fun, init, arg) => todo!(),
