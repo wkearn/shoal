@@ -497,9 +497,9 @@ impl TypeSubstitution {
 		let ft = self.reconstruct(fun,env)?;
 		let at = self.reconstruct(arg,env)?;
 		match &at {
-		    Type::Array(arr_type) => {
+		    Type::Array(el_type) => {
 			let rt = self.genvar();
-			let tt = Type::Function(arr_type.clone(),Box::new(rt.clone()));
+			let tt = Type::Function(el_type.clone(),Box::new(rt.clone()));
 			self.unify(&ft,&tt)?;
 			Ok(Type::Array(Box::new(self.get(&rt))))
 		    }
@@ -514,9 +514,9 @@ impl TypeSubstitution {
 		let at = self.reconstruct(arg,env)?;
 
 		match &at {
-		    Type::Array(arr_type) => {
+		    Type::Array(el_type) => {
 			let rt = self.genvar();
-			let tt = Type::BinaryFunction(Box::new(rt.clone()),arr_type.clone(),Box::new(rt.clone()));
+			let tt = Type::BinaryFunction(Box::new(rt.clone()),el_type.clone(),Box::new(rt.clone()));
 
 			self.unify(&ft,&tt)?;
 			self.unify(&it,&rt)?;
@@ -534,9 +534,9 @@ impl TypeSubstitution {
 		let at = self.reconstruct(arg,env)?;
 
 		match &at {
-		    Type::Array(arr_type) => {
+		    Type::Array(el_type) => {
 			let rt = self.genvar();
-			let tt = Type::BinaryFunction(Box::new(rt.clone()),arr_type.clone(),Box::new(rt.clone()));
+			let tt = Type::BinaryFunction(Box::new(rt.clone()),el_type.clone(),Box::new(rt.clone()));
 
 			self.unify(&ft,&tt)?;
 			self.unify(&it,&rt)?;
