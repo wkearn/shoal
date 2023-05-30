@@ -11,6 +11,15 @@ impl Position {
     fn new(line: usize, col: usize) -> Self {
 	Position {line, col}
     }
+
+    fn increment_column(&mut self) {
+	self.col += 1;
+    }
+
+    fn increment_line(&mut self) {
+	self.line += 1;
+	self.col = 0;
+    }
 }
 
 impl std::fmt::Display for Position {
@@ -82,11 +91,11 @@ where
                     ')' => {
                         // Consume the right paren
                         tokens.next();
-			local_pos.col += 1;
+			local_pos.increment_column();
                         return Ok((local_pos,SExpr::List(v,start_pos,local_pos)));
                     }
                     _ => {
-			local_pos.col += 1;
+			local_pos.increment_column();
                         let (new_pos,t) = parse_token(tokens,local_pos)?;
 			local_pos = new_pos;
                         v.push(t);
@@ -100,11 +109,10 @@ where
             if c.is_whitespace() {
                 // Move to the next token
 		if c == '\n' {
-		    local_pos.line += 1;
-		    local_pos.col = 0;
+		    local_pos.increment_line();
 		    parse_token(tokens,local_pos)
 		} else {
-		    local_pos.col += 1;
+		    local_pos.increment_column();
 		    parse_token(tokens,local_pos)
 		}                
             } else {
@@ -122,15 +130,14 @@ where
                         c => {
                             if c.is_whitespace() {
 				if c == &'\n' {
-				    local_pos.line += 1;
-				    local_pos.col = 0;
+				    local_pos.increment_line();
 				}
                                 break;
                             } else {
                                 s.push(*c);
                                 // Consume token
                                 tokens.next();
-				local_pos.col += 1;
+				local_pos.increment_column();
                             }
                         }
                     }
@@ -180,7 +187,7 @@ mod tests {
 
 	// Mismatched parentheses across lines
 	"(let ((m 1.0))
-              (+ m 2.0)".parse::<SExpr>().unwrap();
+              (+ m 2.0)".parse::<SExpr>().unwrap_err();
     }
 }
 
