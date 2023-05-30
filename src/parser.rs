@@ -16,6 +16,7 @@ pub enum Expr {
     App(Box<Expr>, Box<Expr>),
     BinApp(Box<Expr>, Box<Expr>, Box<Expr>),
     Let(Box<str>, Box<Expr>, Box<Expr>),
+    If(Box<Expr>, Box<Expr>, Box<Expr>),
 }
 
 pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
@@ -138,11 +139,34 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
                                 )))
                             }
                         }
+                        "if" => {
+                            if vs.len() == 4 {
+                                // (if cond conseq alt)
+                                let cond = vs.get(1).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: If statement expects a condition"
+                                )))?;
+                                let cond = parse(cond)?;
+
+                                let conseq = vs.get(2).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: If statement expects a then expression"
+                                )))?;
+                                let conseq = parse(conseq)?;
+
+                                let alt = vs.get(3).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: If statement expects an else expression"
+                                )))?;
+                                let alt = parse(alt)?;
+
+                                Ok(Expr::If(Box::new(cond), Box::new(conseq), Box::new(alt)))
+                            } else {
+                                Err(Error::SyntaxError(format!("[{start_pos}]: if statement should be applied to three expressions")))
+                            }
+                        }
                         _ => {
                             // This is function application
                             if vs.len() <= 3 {
                                 let arg0 = vs.get(1).ok_or(Error::SyntaxError(format!(
-                                    "Function application needs at least one argument"
+                                    "[{start_pos}]: Function application needs at least one argument"
                                 )))?;
 
                                 let arg0 = parse(arg0)?;
@@ -225,6 +249,12 @@ mod test {
     #[test]
     fn test4() {
         let src: SExpr = "(let ((f (lambda (u v) (let ((m (max u v))) (+ (exp (- u m)) (exp (- v m))))))) (f 1.0 2.0))".parse().unwrap();
+        parse(&src).unwrap();
+    }
+
+    #[test]
+    fn test5() {
+        let src: SExpr = "(if (== 1.0 2.0) 2.0 3.0)".parse().unwrap();
         parse(&src).unwrap();
     }
 }
