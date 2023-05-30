@@ -24,21 +24,21 @@ pub enum Expr {
 
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-	match self {
-	    Expr::BooleanLiteral(v) => write!(f,"{v}"),
-	    Expr::IntegerLiteral(v) => write!(f,"{v}"),
-	    Expr::FloatLiteral(v) => write!(f,"{v}"),
-	    Expr::Identifier(s) => write!(f,"{s}"),
-	    Expr::Lambda(arg,body) => write!(f,"(lambda ({arg}) {body})"),
-	    Expr::BinLambda(arg0, arg1, body) => write!(f,"(lambda ({arg0} {arg1}) {body})"),
-	    Expr::App(fun,arg) => write!(f,"({fun} {arg})"),
-	    Expr::BinApp(fun,arg0,arg1) => write!(f,"({fun} {arg0} {arg1})"),
-	    Expr::Let(arg,def,body) => write!(f,"(let (({arg} {def})) {body})"),
-	    Expr::If(cond,conseq,alt) => write!(f,"(if {cond} {conseq} {alt})"),
-	    Expr::Map(fun,arr) => write!(f,"(map {fun} {arr})"),
-	    Expr::Reduce(fun,init,arr) => write!(f,"(reduce {fun} {init} {arr})"),
-	    Expr::Iota(n) => write!(f,"(iota {n})"),
-	}
+        match self {
+            Expr::BooleanLiteral(v) => write!(f, "{v}"),
+            Expr::IntegerLiteral(v) => write!(f, "{v}"),
+            Expr::FloatLiteral(v) => write!(f, "{v}"),
+            Expr::Identifier(s) => write!(f, "{s}"),
+            Expr::Lambda(arg, body) => write!(f, "(lambda ({arg}) {body})"),
+            Expr::BinLambda(arg0, arg1, body) => write!(f, "(lambda ({arg0} {arg1}) {body})"),
+            Expr::App(fun, arg) => write!(f, "({fun} {arg})"),
+            Expr::BinApp(fun, arg0, arg1) => write!(f, "({fun} {arg0} {arg1})"),
+            Expr::Let(arg, def, body) => write!(f, "(let (({arg} {def})) {body})"),
+            Expr::If(cond, conseq, alt) => write!(f, "(if {cond} {conseq} {alt})"),
+            Expr::Map(fun, arr) => write!(f, "(map {fun} {arr})"),
+            Expr::Reduce(fun, init, arr) => write!(f, "(reduce {fun} {init} {arr})"),
+            Expr::Iota(n) => write!(f, "(iota {n})"),
+        }
     }
 }
 
@@ -209,11 +209,11 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
                                 )))?;
                                 let fun = parse(fun)?;
 
-				let init = vs.get(2).ok_or(Error::SyntaxError(format!(
+                                let init = vs.get(2).ok_or(Error::SyntaxError(format!(
                                     "[{start_pos}]: reduce statement expects an initial value: (reduce f init arg)"
                                 )))?;
                                 let init = parse(init)?;
-				
+
                                 let arr = vs.get(3).ok_or(Error::SyntaxError(format!(
                                     "[{start_pos}]: reduce statement expects an argument: (reduce f init arg)"
                                 )))?;
@@ -225,7 +225,7 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
                             }
                         }
                         "iota" => {
-			    if vs.len() == 2 {				
+                            if vs.len() == 2 {
                                 let arg = vs.get(1).ok_or(Error::SyntaxError(format!(
                                     "[{start_pos}]: iota statement expects an argument: (iota n)"
                                 )))?;
@@ -334,7 +334,9 @@ mod test {
 
     #[test]
     fn test6() {
-        let src: SExpr = "(reduce + 0 (map (lambda (u) (+ u 1)) (iota 10)))".parse().unwrap();
+        let src: SExpr = "(reduce + 0 (map (lambda (u) (+ u 1)) (iota 10)))"
+            .parse()
+            .unwrap();
         parse(&src).unwrap();
     }
 }

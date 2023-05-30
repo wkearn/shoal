@@ -23,6 +23,6 @@ pub fn repl() -> Result<(), Error> {
 
         let ex: parser::sexpr::SExpr = source.parse()?;
         let ast = parser::parse(&ex)?;
-        println!("{ast:?}")
+        println!("{ast:?}");
     }
 }
