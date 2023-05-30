@@ -201,9 +201,8 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
 
 #[cfg(test)]
 mod test {
-    use super::{SExpr,parse};
-    
-    
+    use super::{parse, SExpr};
+
     #[test]
     fn test1() {
         let src: SExpr = "(+ 1 2)".parse().unwrap();
