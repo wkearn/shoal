@@ -11,6 +11,7 @@ use std::collections::{HashMap, HashSet};
 pub enum Type {
     Boolean,
     Integer,
+    Float32,
     Float64,
     TypeVar(Box<str>, HashSet<Box<str>>),
     Function(Box<Type>, Box<Type>),
@@ -23,6 +24,7 @@ impl std::fmt::Display for Type {
         match self {
             Self::Boolean => write!(f, "Boolean"),
             Self::Integer => write!(f, "Integer"),
+	    Self::Float32 => write!(f, "Float32"),
             Self::Float64 => write!(f, "Float64"),
             Self::TypeVar(s, ops) => write!(
                 f,
@@ -58,6 +60,7 @@ impl Type {
         match self {
             Type::Boolean => HashSet::new(),
             Type::Integer => HashSet::new(),
+	    Type::Float32 => HashSet::new(),
             Type::Float64 => HashSet::new(),
             Type::TypeVar(s, ops) => {
                 let mut fvs = HashSet::new();
@@ -189,6 +192,7 @@ impl TypeSubstitution {
             // Primitive types return the same type
             Type::Boolean => Type::Boolean,
             Type::Integer => Type::Integer,
+	    Type::Float32 => Type::Float32,
             Type::Float64 => Type::Float64,
             Type::Function(arg, body) => {
                 let at = self.get(arg);
@@ -234,6 +238,19 @@ impl TypeSubstitution {
                     match self.overloads.get(x) {
                         Some(ts) => {
                             if !ts.contains(&"Integer".into()) {
+                                return false;
+                            }
+                        }
+                        None => return false,
+                    }
+                }
+                return true;
+            }
+	    Type::Float32 => {
+                for x in xs.iter() {
+                    match self.overloads.get(x) {
+                        Some(ts) => {
+                            if !ts.contains(&"Float64".into()) {
                                 return false;
                             }
                         }
@@ -289,6 +306,11 @@ impl TypeSubstitution {
             },
             Type::Integer => match right {
                 Type::Integer => Ok(()),
+                Type::TypeVar(_, _) => self.unify(right, left),
+                _ => Err(Error::TypeError(format!("{left} != {right}"))),
+            },
+	    Type::Float32 => match right {
+                Type::Float32 => Ok(()),
                 Type::TypeVar(_, _) => self.unify(right, left),
                 _ => Err(Error::TypeError(format!("{left} != {right}"))),
             },
