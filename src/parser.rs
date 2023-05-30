@@ -17,6 +17,9 @@ pub enum Expr {
     BinApp(Box<Expr>, Box<Expr>, Box<Expr>),
     Let(Box<str>, Box<Expr>, Box<Expr>),
     If(Box<Expr>, Box<Expr>, Box<Expr>),
+    Map(Box<Expr>, Box<Expr>),
+    Reduce(Box<Expr>, Box<Expr>, Box<Expr>),
+    Iota(Box<Expr>),
 }
 
 pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
@@ -162,6 +165,57 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
                                 Err(Error::SyntaxError(format!("[{start_pos}]: if statement should be applied to three expressions")))
                             }
                         }
+                        "map" => {
+                            if vs.len() == 3 {
+                                let fun = vs.get(1).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: map statement expects a function"
+                                )))?;
+                                let fun = parse(fun)?;
+
+                                let arr = vs.get(2).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: map statement expects an argument"
+                                )))?;
+                                let arr = parse(arr)?;
+
+                                Ok(Expr::Map(Box::new(fun), Box::new(arr)))
+                            } else {
+                                Err(Error::SyntaxError(format!("[{start_pos}]: map statement expects two expressions: (map f xs)")))
+                            }
+                        }
+                        "reduce" => {
+                            if vs.len() == 4 {
+                                let fun = vs.get(1).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: reduce statement expects a function: (reduce f init arg)"
+                                )))?;
+                                let fun = parse(fun)?;
+
+				let init = vs.get(2).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: reduce statement expects an initial value: (reduce f init arg)"
+                                )))?;
+                                let init = parse(init)?;
+				
+                                let arr = vs.get(3).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: reduce statement expects an argument: (reduce f init arg)"
+                                )))?;
+                                let arr = parse(arr)?;
+
+                                Ok(Expr::Reduce(Box::new(fun), Box::new(init), Box::new(arr)))
+                            } else {
+                                Err(Error::SyntaxError(format!("[{start_pos}]: reduce statement expects three expressions: (reduce f init arg)")))
+                            }
+                        }
+                        "iota" => {
+			    if vs.len() == 2 {				
+                                let arg = vs.get(1).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: iota statement expects an argument: (iota n)"
+                                )))?;
+                                let arg = parse(arg)?;
+
+                                Ok(Expr::Iota(Box::new(arg)))
+                            } else {
+                                Err(Error::SyntaxError(format!("[{start_pos}]: iota statement expects one expression: (iota n)")))
+                            }
+                        }
                         _ => {
                             // This is function application
                             if vs.len() <= 3 {
@@ -255,6 +309,12 @@ mod test {
     #[test]
     fn test5() {
         let src: SExpr = "(if (== 1.0 2.0) 2.0 3.0)".parse().unwrap();
+        parse(&src).unwrap();
+    }
+
+    #[test]
+    fn test6() {
+        let src: SExpr = "(reduce + 0 (map (lambda (u) (+ u 1)) (iota 10)))".parse().unwrap();
         parse(&src).unwrap();
     }
 }
