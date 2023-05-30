@@ -358,7 +358,7 @@ mod test {
 
     #[test]
     fn test6() {
-        let src: SExpr = "(reduce + 0 (map (lambda (u) (+ u 1)) (iota 10)))"
+        let src: SExpr = "(reduce + 0 (scan + 0 (map (lambda (u) (+ u 1)) (iota 10))))"
             .parse()
             .unwrap();
         parse(&src).unwrap();
