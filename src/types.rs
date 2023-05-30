@@ -280,6 +280,7 @@ impl TypeSubstitution {
 
     /// Unify the left and right types in the given substitution
     fn unify(&mut self, left: &Type, right: &Type) -> Result<(), Error> {
+	println!("Unifying {left} and {right}");
         match left {
             Type::Boolean => match right {
                 Type::Boolean => Ok(()),
@@ -324,16 +325,24 @@ impl TypeSubstitution {
                         "Recursive type found: {left} == {right}"
                     )))
                 } else {
-                    // Substitute the right variable to make sure that it is reduced as far as possible
-                    let new_right = self.get(right);
-                    self.cs(ops, &new_right)?;
-                    self.substitution.insert(x.clone(), new_right);
-                    Ok(())
+		    match self.substitution.get(x) {
+			Some(bound) => {
+			    // If the left variable is already in the substitution,
+			    // unify its substitution with the right variable
+			    self.unify(&bound.clone(),right)
+			}
+			None => {// Substitute the right variable to make sure that it is reduced as far as possible
+			    let new_right = self.get(right);
+			    self.cs(ops, &new_right)?;
+			    self.substitution.insert(x.clone(), new_right);
+			    Ok(())
+			}
+		    }
                 }
             }
         }
     }
-    pub fn reconstruct(&mut self, expr: &Expr, env: &TypeEnv) -> Result<Type, Error> {
+    pub fn reconstruct(&mut self, expr: &Expr, env: &TypeEnv) -> Result<Type, Error> {	
         match expr {
             Expr::BooleanLiteral(_) => Ok(Type::Boolean),
             Expr::IntegerLiteral(_) => Ok(Type::Integer),
@@ -440,8 +449,34 @@ impl TypeSubstitution {
 
                 Ok(self.get(&body_type))
             }
-            Expr::App(fun, arg) => todo!(),
-            Expr::BinApp(fun, arg0, arg1) => todo!(),
+            Expr::App(fun, arg) => {
+		let ft = self.reconstruct(fun,env)?;
+		println!("Function {ft}");
+		let at = self.reconstruct(arg,env)?;
+		println!("Argument {at}");
+
+		let rt = self.genvar();
+		println!("Return {rt}");
+
+		let tt = Type::Function(Box::new(at),Box::new(rt.clone()));
+
+		self.unify(&ft,&tt)?;
+
+		Ok(self.get(&rt))
+	    },
+            Expr::BinApp(fun, arg0, arg1) => {
+		let ft = self.reconstruct(fun,env)?;
+		let at0 = self.reconstruct(arg0,env)?;
+		let at1 = self.reconstruct(arg1,env)?;
+		
+		let rt = self.genvar();
+
+		let tt = Type::BinaryFunction(Box::new(at0),Box::new(at1),Box::new(rt.clone()));
+
+		self.unify(&ft,&tt)?;
+
+		Ok(self.get(&rt))
+	    },
             Expr::If(pred, conseq, alt) => todo!(),
             Expr::Map(fun, arg) => todo!(),
             Expr::Reduce(fun, init, arg) => todo!(),
