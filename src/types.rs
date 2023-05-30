@@ -103,7 +103,7 @@ impl TypeEnv {
 }
 
 /// A type substitution maps type variables to type schemes
-#[derive(Debug,Default)]
+#[derive(Debug, Default)]
 pub struct TypeSubstitution {
     fresh_vars: u32,
     substitution: HashMap<Box<str>, Type>,
@@ -111,9 +111,8 @@ pub struct TypeSubstitution {
 }
 
 impl TypeSubstitution {
-
     fn new() -> Self {
-	Self::default()
+        Self::default()
     }
     /// Generate a fresh type variable with no overloading constraints
     fn genvar(&mut self) -> Type {
@@ -288,33 +287,108 @@ impl TypeSubstitution {
             Expr::IntegerLiteral(_) => Ok(Type::Integer),
             Expr::FloatLiteral(_) => Ok(Type::Float64),
             Expr::Identifier(s) => {
-                let x = env.0
+                let x = env
+                    .0
                     .get(s)
                     .ok_or(Error::UndefinedVariableError(format!("{s}")))?;
 
-		match x {
-		    TypeScheme::PlainType(t) => Ok(t.clone()),			
-		    TypeScheme::QuantifiedType(vs,t) => {
-			let mut local_sub = TypeSubstitution::new();
-			for v in vs {
-			    // TODO: instantiate TypeVars with appropriate ops for each v in vs
-			    local_sub.substitution.insert(v.clone(),self.genvar_with_ops(None));
-			}
-			let tt = local_sub.get(t);
-			Ok(tt)
-		    }
-		}
+                match x {
+                    TypeScheme::PlainType(t) => Ok(t.clone()),
+                    TypeScheme::QuantifiedType(vs, t) => {
+                        let mut local_sub = TypeSubstitution::new();
+                        for v in vs {
+                            // TODO: instantiate TypeVars with appropriate ops for each v in vs
+                            local_sub
+                                .substitution
+                                .insert(v.clone(), self.genvar_with_ops(None));
+                        }
+                        let tt = local_sub.get(t);
+                        Ok(tt)
+                    }
+                }
             }
-	    Expr::Lambda(arg,body) => todo!(),
-	    Expr::BinLambda(arg0,arg1,body) => todo!(),
-	    Expr::App(fun,arg) => todo!(),
-	    Expr::BinApp(fun,arg0,arg1) => todo!(),
-	    Expr::Let(arg,def,body) => todo!(),
-	    Expr::If(pred,conseq,alt) => todo!(),
-	    Expr::Map(fun, arg) => todo!(),
-	    Expr::Reduce(fun,init,arg) => todo!(),
-	    Expr::Scan(fun,init,arg) => todo!(),
-	    Expr::Iota(n) => todo!()
+            Expr::Lambda(arg, body) => {
+		// Extend the local environment
+		let (arg_type,body_type) = {
+                    let mut local_env = TypeEnv::new();
+                    local_env
+			.0
+			.extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+                    let arg_type = self.genvar();
+                    local_env
+			.0
+			.insert(arg.clone(), TypeScheme::PlainType(arg_type));
+		    
+                    let body_type = self.reconstruct(body, &local_env)?;
+
+		    // Since we destroy the local environment as soon as we finish reconstructing it,
+		    // we can get the generated variable back by removing it from the HashMap.
+		    let Some(TypeScheme::PlainType(arg_type)) = local_env.0.remove(arg) else {unreachable!()};
+		    (arg_type,body_type)
+		};
+
+                let new_arg = self.get(&arg_type);
+                let new_body = self.get(&body_type);
+
+                Ok(Type::Function(Box::new(new_arg), Box::new(new_body)))
+            }
+            Expr::BinLambda(arg0, arg1, body) => todo!(),
+            Expr::App(fun, arg) => todo!(),
+            Expr::BinApp(fun, arg0, arg1) => todo!(),
+            Expr::Let(arg, def, body) => todo!(),
+            Expr::If(pred, conseq, alt) => todo!(),
+            Expr::Map(fun, arg) => todo!(),
+            Expr::Reduce(fun, init, arg) => todo!(),
+            Expr::Scan(fun, init, arg) => todo!(),
+            Expr::Iota(n) => todo!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use crate::parser;
+    use crate::parser::sexpr::SExpr;
+
+    #[test]
+    fn test1() {
+        let expr = parser::parse(
+            &"(let ((f (lambda (x) x))) (f 1.0))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+        assert_eq!(t, Type::Float64);
+
+        //
+        let expr =
+            parser::parse(&"(let ((f (lambda (x) x))) (f 1))".parse::<SExpr>().unwrap()).unwrap();
+
+        let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+        assert_eq!(t, Type::Integer);
+
+        //
+        let expr = parser::parse(
+            &"(let ((f (lambda (x) x))) (f true))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+        assert_eq!(t, Type::Boolean);
     }
 }
