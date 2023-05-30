@@ -329,6 +329,7 @@ impl TypeSubstitution {
 			Some(bound) => {
 			    // If the left variable is already in the substitution,
 			    // unify its substitution with the right variable
+			    // Can we somehow avoid cloning left here?
 			    self.unify(&bound.clone(),right)
 			}
 			None => {// Substitute the right variable to make sure that it is reduced as far as possible
@@ -477,7 +478,19 @@ impl TypeSubstitution {
 
 		Ok(self.get(&rt))
 	    },
-            Expr::If(pred, conseq, alt) => todo!(),
+            Expr::If(pred, conseq, alt) => {
+		// Predicate must be a Boolean
+		let pt = self.reconstruct(pred,env)?;
+		self.unify(&pt,&Type::Boolean)?;
+
+		// Consequent and alternative must have the same type
+		let ct = self.reconstruct(conseq,env)?;
+		let at = self.reconstruct(alt,env)?;
+		self.unify(&ct,&at)?;		
+
+		// Does it matter whether we return ct or at?
+		Ok(at)
+	    },
             Expr::Map(fun, arg) => todo!(),
             Expr::Reduce(fun, init, arg) => todo!(),
             Expr::Scan(fun, init, arg) => todo!(),
@@ -531,5 +544,65 @@ mod test {
         let t = sub.reconstruct(&expr, &env).unwrap();
 
         assert_eq!(t, Type::Boolean);
+    }
+
+    #[test]
+    fn test2() {
+	let expr = parser::parse(&"(if true 1.0 2.0)".parse::<SExpr>().unwrap()).unwrap();
+
+	let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+	assert_eq!(t,Type::Float64);
+
+	//
+	let expr = parser::parse(&"(if true 1 2)".parse::<SExpr>().unwrap()).unwrap();
+
+	let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+	assert_eq!(t,Type::Integer);
+
+	//
+	let expr = parser::parse(&"(if true false true)".parse::<SExpr>().unwrap()).unwrap();
+
+	let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+	assert_eq!(t,Type::Boolean);
+
+	//
+	let expr = parser::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
+
+	let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        match sub.reconstruct(&expr, &env).unwrap_err() {
+	    Error::TypeError(_) => {}
+	    _ => panic!("Expected test to throw TypeError")
+	}
+
+	//
+	let expr = parser::parse(&"(if 2.0 1 2)".parse::<SExpr>().unwrap()).unwrap();
+
+	let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        match sub.reconstruct(&expr, &env).unwrap_err() {
+	    Error::TypeError(_) => {}
+	    _ => panic!("Expected test to throw TypeError")
+	}
+    }
+    
+    #[test]
+    fn test3() {
+	let expr = parser::parse(&"(reduce (lambda (u v) v) 0 (iota n))".parse::<SExpr>().unwrap()).unwrap();
+
+	let mut sub = TypeSubstitution::new();
+        let env = TypeEnv::new();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+	assert_eq!(t,Type::Integer);
     }
 }
