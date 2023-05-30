@@ -308,31 +308,65 @@ impl TypeSubstitution {
                 }
             }
             Expr::Lambda(arg, body) => {
-		// Extend the local environment
-		let (arg_type,body_type) = {
+                // Extend the local environment
+                let (arg_type, body_type) = {
                     let mut local_env = TypeEnv::new();
                     local_env
-			.0
-			.extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+                        .0
+                        .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
                     let arg_type = self.genvar();
                     local_env
-			.0
-			.insert(arg.clone(), TypeScheme::PlainType(arg_type));
-		    
+                        .0
+                        .insert(arg.clone(), TypeScheme::PlainType(arg_type));
+
                     let body_type = self.reconstruct(body, &local_env)?;
 
-		    // Since we destroy the local environment as soon as we finish reconstructing it,
-		    // we can get the generated variable back by removing it from the HashMap.
-		    let Some(TypeScheme::PlainType(arg_type)) = local_env.0.remove(arg) else {unreachable!()};
-		    (arg_type,body_type)
-		};
+                    // Since we destroy the local environment as soon as we finish reconstructing it,
+                    // we can get the generated variable back by removing it from the HashMap.
+                    let Some(TypeScheme::PlainType(arg_type)) = local_env.0.remove(arg) else {unreachable!()};
+                    (arg_type, body_type)
+                };
 
                 let new_arg = self.get(&arg_type);
                 let new_body = self.get(&body_type);
 
                 Ok(Type::Function(Box::new(new_arg), Box::new(new_body)))
             }
-            Expr::BinLambda(arg0, arg1, body) => todo!(),
+            Expr::BinLambda(arg0, arg1, body) => {
+                // Extend the local environment
+                let (arg0_type, arg1_type, body_type) = {
+                    let mut local_env = TypeEnv::new();
+                    local_env
+                        .0
+                        .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+                    let arg0_type = self.genvar();
+                    let arg1_type = self.genvar();
+                    local_env
+                        .0
+                        .insert(arg0.clone(), TypeScheme::PlainType(arg0_type));
+                    local_env
+                        .0
+                        .insert(arg1.clone(), TypeScheme::PlainType(arg1_type));
+
+                    let body_type = self.reconstruct(body, &local_env)?;
+
+                    // Since we destroy the local environment as soon as we finish reconstructing it,
+                    // we can get the generated variable back by removing it from the HashMap.
+                    let Some(TypeScheme::PlainType(arg0_type)) = local_env.0.remove(arg0) else {unreachable!()};
+                    let Some(TypeScheme::PlainType(arg1_type)) = local_env.0.remove(arg1) else {unreachable!()};
+                    (arg0_type, arg1_type, body_type)
+                };
+
+                let new_arg0 = self.get(&arg0_type);
+                let new_arg1 = self.get(&arg1_type);
+                let new_body = self.get(&body_type);
+
+                Ok(Type::BinaryFunction(
+                    Box::new(new_arg0),
+                    Box::new(new_arg1),
+                    Box::new(new_body),
+                ))
+            }
             Expr::App(fun, arg) => todo!(),
             Expr::BinApp(fun, arg0, arg1) => todo!(),
             Expr::Let(arg, def, body) => todo!(),
