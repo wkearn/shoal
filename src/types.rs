@@ -246,7 +246,7 @@ impl TypeSubstitution {
                 for x in xs.iter() {
                     match self.overloads.get(x) {
                         Some(ts) => {
-                            if !ts.contains(&"Integer".into()) {
+                            if !ts.contains(&"Float64".into()) {
                                 return false;
                             }
                         }
