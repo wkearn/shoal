@@ -165,7 +165,44 @@ mod tests {
 
     #[test]
     fn test1() {
-        let s: SExpr = "(foo 1 2.0)".parse().unwrap();
+        let s: SExpr = "(foo 10 2.0)".parse().unwrap();
+
+	match s {
+	    SExpr::List(v,start_pos,end_pos) => {
+
+		assert_eq!(Position::new(1,0),start_pos);
+		
+		match &v[0] {
+		    SExpr::Atom(s,x1,x2) => {
+			assert_eq!("foo",&**s);
+			assert_eq!(&Position::new(1,1),x1);
+			assert_eq!(&Position::new(1,3),x2)
+		    }
+		    _ => panic!("Expected an atom")
+		}
+
+		match &v[1] {
+		    SExpr::Integer(v,x1,x2) => {
+			assert_eq!(10,*v);
+			assert_eq!(&Position::new(1,5),x1);
+			assert_eq!(&Position::new(1,6),x2);
+		    }
+		    _ => panic!("Expected an integer")
+		}
+
+		match &v[2] {
+		    SExpr::Float(v,x1,x2) => {
+			assert_eq!(2.0,*v);
+			assert_eq!(&Position::new(1,8),x1);
+			assert_eq!(&Position::new(1,10),x2);
+		    }
+		    _ => panic!("Expected an integer")
+		}
+
+		assert_eq!(Position::new(1,11),end_pos);
+	    },
+	    _ => panic!("Expected a list")
+	}
     }
 
     #[test]
