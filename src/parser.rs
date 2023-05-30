@@ -24,13 +24,13 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
         SExpr::Integer(v, _, _) => Ok(Expr::IntegerLiteral(v.clone())),
         SExpr::Float(v, _, _) => Ok(Expr::FloatLiteral(v.clone())),
         SExpr::Atom(s, _, _) => Ok(Expr::Identifier(s.clone())),
-        SExpr::List(vs, start_pos, end_pos) => {
+        SExpr::List(vs, start_pos, _) => {
             let head: &SExpr = vs.get(0).ok_or(Error::SyntaxError(format!(
                 "[{start_pos}]: Empty list form"
             )))?;
 
             match head {
-                SExpr::Atom(s, head_start_pos, head_end_pos) => {
+                SExpr::Atom(s, _, _) => {
                     match &**s {
                         "lambda" => {
                             // Lambda abstraction
@@ -46,7 +46,7 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
                                 let body = parse(body)?;
 
                                 match args {
-                                    SExpr::List(arg_list, args_start, args_end) => {
+                                    SExpr::List(arg_list, args_start, _) => {
                                         if arg_list.len() <= 2 {
                                             let arg0 = arg_list.get(0).ok_or(
                                                 Error::SyntaxError(format!(
@@ -170,7 +170,7 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
                 }
                 SExpr::List(_, _, _) => {
                     // This is function application with an expression
-		    let fun = parse(head)?;
+                    let fun = parse(head)?;
 
                     if vs.len() <= 3 {
                         let arg0 = vs.get(1).ok_or(Error::SyntaxError(format!(
@@ -181,16 +181,9 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
 
                         if let Some(arg1) = vs.get(2) {
                             let arg1 = parse(arg1)?;
-                            Ok(Expr::BinApp(
-                                Box::new(fun),
-                                Box::new(arg0),
-                                Box::new(arg1),
-                            ))
+                            Ok(Expr::BinApp(Box::new(fun), Box::new(arg0), Box::new(arg1)))
                         } else {
-                            Ok(Expr::App(
-                                Box::new(fun),
-                                Box::new(arg0),
-                            ))
+                            Ok(Expr::App(Box::new(fun), Box::new(arg0)))
                         }
                     } else {
                         Err(Error::SyntaxError(format!(
@@ -206,13 +199,15 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
     }
 }
 
+#[cfg(test)]
 mod test {
-    use super::*;
-
+    use super::{SExpr,parse};
+    
+    
     #[test]
     fn test1() {
         let src: SExpr = "(+ 1 2)".parse().unwrap();
-        let ex = parse(&src).unwrap();
+        parse(&src).unwrap();
     }
 
     #[test]
@@ -223,14 +218,14 @@ mod test {
 
     #[test]
     fn test3() {
-	// This should parse successfully, but it will be a type error later
-	let src: SExpr = "((lambda (u) (+ u v)) 1 2)".parse().unwrap();
-        let ex = parse(&src).unwrap();
+        // This should parse successfully, but it will be a type error later
+        let src: SExpr = "((lambda (u) (+ u v)) 1 2)".parse().unwrap();
+        parse(&src).unwrap();
     }
 
     #[test]
     fn test4() {
-	let src: SExpr = "(let ((f (lambda (u v) (let ((m (max u v))) (+ (exp (- u m)) (exp (- v m))))))) (f 1.0 2.0))".parse().unwrap();
-        let ex = parse(&src).unwrap();
+        let src: SExpr = "(let ((f (lambda (u v) (let ((m (max u v))) (+ (exp (- u m)) (exp (- v m))))))) (f 1.0 2.0))".parse().unwrap();
+        parse(&src).unwrap();
     }
 }

@@ -291,7 +291,7 @@ mod test {
 
     #[test]
     fn test3() {
-        let SExpr::List(s,start_pos,end_pos) = "(let ((m 1.0))
+        let SExpr::List(_,start_pos,end_pos) = "(let ((m 1.0))
                                                      (+ m 2.0))".parse().unwrap() else {panic!("Expected a list") };
 
         assert_eq!(Position::new(1, 0), start_pos);
