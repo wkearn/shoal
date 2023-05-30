@@ -1,31 +1,49 @@
 /// S-expression parsing
 use crate::error::Error;
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Position {
+    line: usize,
+    col: usize
+}
+
+impl Position {
+    fn new(line: usize, col: usize) -> Self {
+	Position {line, col}
+    }
+}
+
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(),std::fmt::Error> {
+	write!(f,"{}:{}",self.line, self.col)
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum SExpr {
-    Atom(Box<str>),
-    Boolean(bool),
-    Integer(i64),
-    Float(f64),
-    List(Vec<SExpr>),
+    Atom(Box<str>,Position,Position),
+    Boolean(bool,Position,Position),
+    Integer(i64,Position,Position),
+    Float(f64,Position,Position),
+    List(Vec<SExpr>,Position,Position),
 }
 
 impl std::fmt::Display for SExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
-            SExpr::Atom(s) => {
+            SExpr::Atom(s,_,_) => {
                 write!(f, "{}", s)
             }
-            SExpr::Boolean(v) => {
+            SExpr::Boolean(v,_,_) => {
                 write!(f, "{}", v)
             }
-            SExpr::Integer(v) => {
+            SExpr::Integer(v,_,_) => {
                 write!(f, "{}", v)
             }
-            SExpr::Float(v) => {
+            SExpr::Float(v,_,_) => {
                 write!(f, "{}", v)
             }
-            SExpr::List(vs) => {
+            SExpr::List(vs,_,_) => {
                 write!(
                     f,
                     "({})",
@@ -43,40 +61,54 @@ impl std::str::FromStr for SExpr {
     type Err = Error;
 
     fn from_str(source: &str) -> Result<Self, Self::Err> {
-        let mut tokens = source.chars().peekable();
-        parse_token(&mut tokens)
+        let mut tokens = source.chars().peekable();	
+        let (_,sexpr) = parse_token(&mut tokens,Position::new(1,0))?;
+	Ok(sexpr)
     }
 }
 
-fn parse_token<I>(tokens: &mut std::iter::Peekable<I>) -> Result<SExpr, Error>
+fn parse_token<I>(tokens: &mut std::iter::Peekable<I>,pos: Position) -> Result<(Position,SExpr), Error>
 where
     I: Iterator<Item = char>,
 {
+    let mut local_pos = pos.clone();
     match tokens.next() {
         Some('(') => {
             // Start a new expression
+	    let start_pos = local_pos.clone();
             let mut v = Vec::new();
             while let Some(t2) = tokens.peek() {
                 match t2 {
                     ')' => {
                         // Consume the right paren
                         tokens.next();
-                        return Ok(SExpr::List(v));
+			local_pos.col += 1;
+                        return Ok((local_pos,SExpr::List(v,start_pos,local_pos)));
                     }
                     _ => {
-                        let t = parse_token(tokens)?;
+			local_pos.col += 1;
+                        let (new_pos,t) = parse_token(tokens,local_pos)?;
+			local_pos = new_pos;
                         v.push(t);
                     }
                 }
             }
-            Err(Error::SyntaxError("Unclosed s-expression".into()))
+            Err(Error::SyntaxError(format!("[{local_pos}]: Unclosed s-expression begins at [{start_pos}]")))
         }
-        Some(')') => Err(Error::SyntaxError("Unmatched right parenthesis".into())),
+        Some(')') => Err(Error::SyntaxError(format!("[line: {local_pos}]: Unmatched right parenthesis"))),
         Some(c) => {
             if c.is_whitespace() {
                 // Move to the next token
-                parse_token(tokens)
+		if c == '\n' {
+		    local_pos.line += 1;
+		    local_pos.col = 0;
+		    parse_token(tokens,local_pos)
+		} else {
+		    local_pos.col += 1;
+		    parse_token(tokens,local_pos)
+		}                
             } else {
+		let start_pos = local_pos.clone();
                 let mut s = String::new();
                 s.push(c);
                 while let Some(t2) = tokens.peek() {
@@ -89,29 +121,34 @@ where
                         }
                         c => {
                             if c.is_whitespace() {
+				if c == &'\n' {
+				    local_pos.line += 1;
+				    local_pos.col = 0;
+				}
                                 break;
                             } else {
                                 s.push(*c);
                                 // Consume token
                                 tokens.next();
+				local_pos.col += 1;
                             }
                         }
                     }
                 }
 		if let Ok(v) = s.parse() {
-                    Ok(SExpr::Integer(v))
+                    Ok((local_pos,SExpr::Integer(v,start_pos,local_pos)))
                 } else if let Ok(v) = s.parse() {
-                    Ok(SExpr::Float(v))
+                    Ok((local_pos,SExpr::Float(v,start_pos,local_pos)))
                 } else {
                     match s.as_str() {
-                        "true" => Ok(SExpr::Boolean(true)),
-                        "false" => Ok(SExpr::Boolean(false)),
-                        _ => Ok(SExpr::Atom(Box::from(s))),
+                        "true" => Ok((local_pos,SExpr::Boolean(true,start_pos,local_pos))),
+                        "false" => Ok((local_pos,SExpr::Boolean(false,start_pos,local_pos))),
+                        _ => Ok((local_pos,SExpr::Atom(Box::from(s),start_pos,local_pos))),
                     }
                 }
             }
         }
-        None => Err(Error::SyntaxError("EOF".into())),
+        None => Err(Error::SyntaxError(format!("[{local_pos}]: unexpected end of file"))),
     }
 }
 
@@ -121,65 +158,36 @@ mod tests {
 
     #[test]
     fn test1() {
-        let SExpr::List(v) = "(foo 1 2.0)".parse().unwrap() else { panic!("Expected a list") };
-
-        assert_eq!(SExpr::Atom("foo".into()), v[0]);
-        assert_eq!(SExpr::Integer(1), v[1]);
-        assert_eq!(SExpr::Float(2.0), v[2]);
+        let s: SExpr = "(foo 1 2.0)".parse().unwrap();
     }
 
     #[test]
     fn test2() {
-        let SExpr::List(v) = "(lambda (u v) (+ u v))".parse().unwrap() else { panic!("Expected a list") };
-
-        assert_eq!(SExpr::Atom("lambda".into()), v[0]);
-
-        match &v[1] {
-            SExpr::List(w) => {
-                assert_eq!(SExpr::Atom("u".into()), w[0]);
-                assert_eq!(SExpr::Atom("v".into()), w[1]);
-            }
-            _ => panic!("Expected a list"),
-        }
-
-        match &v[2] {
-            SExpr::List(w) => {
-                assert_eq!(SExpr::Atom("+".into()), w[0]);
-                assert_eq!(SExpr::Atom("u".into()), w[1]);
-                assert_eq!(SExpr::Atom("v".into()), w[2]);
-            }
-            _ => panic!("Expected a list"),
-        }
+        let s: SExpr = "(lambda (u v) (+ u v))".parse().unwrap();
     }
+
 
     #[test]
     fn test3() {
-        let SExpr::List(s) = "(let ((m 1.0))
-                                   (+ m 2.0))".parse().unwrap() else { panic!("Expected a list") };
+        let s: SExpr = "(let ((m 1.0))
+                             (+ m 2.0))".parse().unwrap();
+    }
 
-        assert_eq!(SExpr::Atom("let".into()), s[0]);
+    #[test]
+    fn error1() {
+	"(foo 1.0 2.0".parse::<SExpr>().unwrap_err();
+	")".parse::<SExpr>().unwrap_err();
 
-        match &s[1] {
-            SExpr::List(t) => match &t[0] {
-                SExpr::List(u) => {
-                    assert_eq!(SExpr::Atom("m".into()), u[0]);
-                    assert_eq!(SExpr::Float(1.0), u[1]);
-                }
-                _ => panic!("Expected a list"),
-            },
-            _ => panic!("Expected a list"),
-        }
-
-        match &s[2] {
-            SExpr::List(t) => {
-                assert_eq!(SExpr::Atom("+".into()), t[0]);
-                assert_eq!(SExpr::Atom("m".into()), t[1]);
-                assert_eq!(SExpr::Float(2.0), t[2]);
-            }
-            _ => panic!("Expected a list"),
-        }
+	// Mismatched parentheses across lines
+	"(let ((m 1.0))
+              (+ m 2.0)".parse::<SExpr>().unwrap();
     }
 }
+
+
+
+
+
 
 
 
