@@ -7,7 +7,7 @@ struct Args {
 }
 
 fn main() -> Result<(), shoal::error::Error> {
-    //let args = Args::parse();
-    //let source = std::fs::read_to_string(args.path)?;
-    shoal::run()
+    let args = Args::parse();
+    let source = std::fs::read_to_string(args.path)?;
+    shoal::run(&source)
 }
