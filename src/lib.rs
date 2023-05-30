@@ -10,7 +10,7 @@ pub fn run(src: &str) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn repl() -> Result<(),Error> {
+pub fn repl() -> Result<(), Error> {
     loop {
         let mut source = String::new();
         match std::io::stdin().read_line(&mut source) {
@@ -21,8 +21,8 @@ pub fn repl() -> Result<(),Error> {
             }
         };
 
-	let ex: parser::sexpr::SExpr = source.parse()?;
-	let ast = parser::parse(&ex)?;
-	println!("{ast:?}")
-    }    
+        let ex: parser::sexpr::SExpr = source.parse()?;
+        let ast = parser::parse(&ex)?;
+        println!("{ast:?}")
+    }
 }
