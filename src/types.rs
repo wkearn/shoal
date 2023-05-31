@@ -156,8 +156,8 @@ impl TypeEnv {
         fvs
     }
 
-    pub fn insert(&mut self,k: Box<str>, v: TypeScheme) -> Option<TypeScheme> {
-	self.0.insert(k,v)
+    pub fn insert(&mut self, k: Box<str>, v: TypeScheme) -> Option<TypeScheme> {
+        self.0.insert(k, v)
     }
 }
 
@@ -175,11 +175,11 @@ impl TypeSubstitution {
     }
 
     pub fn clear(&mut self) {
-	self.substitution.clear();
+        self.substitution.clear();
 
-	// The standard library uses different type variables,
-	// so resetting fresh_vars should work.
-	self.fresh_vars = 0;
+        // The standard library uses different type variables,
+        // so resetting fresh_vars should work.
+        self.fresh_vars = 0;
     }
     /// Generate a fresh type variable with no overloading constraints
     pub fn genvar(&mut self) -> Type {
@@ -198,8 +198,8 @@ impl TypeSubstitution {
         Type::TypeVar(s.into(), ops_hs)
     }
 
-    pub fn insert_overload(&mut self,k: Box<str>, v: Vec<Box<str>>) -> Option<Vec<Box<str>>> {
-	self.overloads.insert(k,v)
+    pub fn insert_overload(&mut self, k: Box<str>, v: Vec<Box<str>>) -> Option<Vec<Box<str>>> {
+        self.overloads.insert(k, v)
     }
 
     /// Apply the type substitution to a Type
@@ -223,8 +223,8 @@ impl TypeSubstitution {
             }
             Type::Array(body) => Type::Array(Box::new(self.get(body))),
             Type::TypeVar(s, _) => match self.substitution.get(s) {
-                Some(u @ Type::TypeVar(_, _)) => self.get(u),
-                Some(bound) => bound.clone(),
+                Some(u) => self.get(u),
+                //Some(bound) => bound.clone(),
                 None => t.clone(),
             },
         }
@@ -535,16 +535,16 @@ impl TypeSubstitution {
                 let ft = self.reconstruct(fun, env)?;
                 let at = self.reconstruct(arg, env)?;
 
-		// at == [et]
-		let et = self.genvar();
-		self.unify(&at,&Type::Array(Box::new(et.clone())))?;
+                // at == [et]
+                let et = self.genvar();
+                self.unify(&at, &Type::Array(Box::new(et.clone())))?;
 
-		// ft == el_type -> rt
-		let rt = self.genvar();
-		let tt = Type::Function(Box::new(et), Box::new(rt.clone()));
-		self.unify(&ft, &tt)?;
+                // ft == el_type -> rt
+                let rt = self.genvar();
+                let tt = Type::Function(Box::new(et), Box::new(rt.clone()));
+                self.unify(&ft, &tt)?;
 
-		Ok(Type::Array(Box::new(self.get(&rt))))	
+                Ok(Type::Array(Box::new(self.get(&rt))))
             }
             Expr::Reduce(fun, init, arg) => {
                 // reduce: ∀ a b . (b x a -> b) -> b -> [a] -> b
@@ -553,23 +553,20 @@ impl TypeSubstitution {
                 let it = self.reconstruct(init, env)?;
                 let at = self.reconstruct(arg, env)?;
 
-		// at == [et]
-		let et = self.genvar();
-		self.unify(&at,&Type::Array(Box::new(et.clone())))?;
-		
-		let rt = self.genvar();
-                let tt = Type::BinaryFunction(
-                    Box::new(rt.clone()),
-                    Box::new(et),
-                    Box::new(rt.clone()),
-                );
+                // at == [et]
+                let et = self.genvar();
+                self.unify(&at, &Type::Array(Box::new(et.clone())))?;
 
-		// ft == rt x et -> rt
+                let rt = self.genvar();
+                let tt =
+                    Type::BinaryFunction(Box::new(rt.clone()), Box::new(et), Box::new(rt.clone()));
+
+                // ft == rt x et -> rt
                 self.unify(&ft, &tt)?;
-		// it == rt
+                // it == rt
                 self.unify(&it, &rt)?;
 
-		Ok(self.get(&rt))
+                Ok(self.get(&rt))
             }
             Expr::Scan(fun, init, arg) => {
                 // scan: ∀ a b . (b x a -> b) -> b -> [a] -> b
@@ -578,23 +575,19 @@ impl TypeSubstitution {
                 let it = self.reconstruct(init, env)?;
                 let at = self.reconstruct(arg, env)?;
 
-		let et = self.genvar();
+                let et = self.genvar();
 
-		self.unify(&at,&Type::Array(Box::new(et.clone())))?;
+                self.unify(&at, &Type::Array(Box::new(et.clone())))?;
 
-		let rt = self.genvar();
-                let tt = Type::BinaryFunction(
-                    Box::new(rt.clone()),
-                    Box::new(et),
-                    Box::new(rt.clone()),
-                );
+                let rt = self.genvar();
+                let tt =
+                    Type::BinaryFunction(Box::new(rt.clone()), Box::new(et), Box::new(rt.clone()));
 
-		// ft == rt x et -> rt
+                // ft == rt x et -> rt
                 self.unify(&ft, &tt)?;
-		// it == rt
+                // it == rt
                 self.unify(&it, &rt)?;
-		
-		
+
                 Ok(Type::Array(Box::new(self.get(&rt))))
             }
             Expr::Iota(n) => {
@@ -750,40 +743,54 @@ mod test {
 
     #[test]
     fn test5() {
-	// Direct expression
-	let expr = parser::parse(&"(reduce + 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+        // Direct expression
+        let expr = parser::parse(&"(reduce + 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
 
-	let (mut sub,env) = crate::stdlib::initialize_types();
+        let (mut sub, env) = crate::stdlib::initialize_types();
 
-	let t = sub.reconstruct(&expr, &env).unwrap();
-	assert_eq!(t,Type::Integer);
+        let t = sub.reconstruct(&expr, &env).unwrap();
+        assert_eq!(t, Type::Integer);
 
-	// Let expression
-	let expr = parser::parse(&"(let ((xs (iota 10))) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
+        // Let expression
+        let expr = parser::parse(
+            &"(let ((xs (iota 10))) (reduce + 0 xs))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
 
-	let (mut sub,env) = crate::stdlib::initialize_types();
+        let (mut sub, env) = crate::stdlib::initialize_types();
 
-	let t = sub.reconstruct(&expr, &env).unwrap();
-	assert_eq!(t,Type::Integer);
+        let t = sub.reconstruct(&expr, &env).unwrap();
+        assert_eq!(t, Type::Integer);
 
-	// Lambda application
-	let expr = parser::parse(&"((lambda (xs) (reduce + 0 xs)) (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+        // Lambda application
+        let expr = parser::parse(
+            &"((lambda (xs) (reduce + 0 xs)) (iota 10))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
 
-	let (mut sub,env) = crate::stdlib::initialize_types();
+        let (mut sub, env) = crate::stdlib::initialize_types();
 
-	let t = sub.reconstruct(&expr, &env).unwrap();
-	assert_eq!(t,Type::Integer);
-
+        let t = sub.reconstruct(&expr, &env).unwrap();
+        assert_eq!(t, Type::Integer);
     }
 
     #[test]
     fn test6() {
-	// Lambda application
-	let expr = parser::parse(&"((lambda (xs) (map (lambda (u) (+ u 1)) xs)) (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+        // Lambda application
+        let expr = parser::parse(
+            &"((lambda (xs) (map (lambda (u) (+ u 1)) xs)) (iota 10))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
 
-	let (mut sub,env) = crate::stdlib::initialize_types();
+        let (mut sub, env) = crate::stdlib::initialize_types();
 
-	let t = sub.reconstruct(&expr, &env).unwrap();
-	assert_eq!(t,Type::Array(Box::new(Type::Integer)));
+        let t = sub.reconstruct(&expr, &env).unwrap();
+        assert_eq!(t, Type::Array(Box::new(Type::Integer)));
     }
 }
