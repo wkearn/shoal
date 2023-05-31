@@ -11,7 +11,7 @@ pub fn run(src: &str) -> Result<(), Error> {
     let mut sub = types::TypeSubstitution::new();
     let env = types::TypeEnv::new();
     let t = sub.reconstruct(&ast, &env).unwrap();
-    
+
     println!("{ast:?}: {t}");
     Ok(())
 }
@@ -30,10 +30,10 @@ pub fn repl() -> Result<(), Error> {
         let ex: parser::sexpr::SExpr = source.parse()?;
         let ast = parser::parse(&ex)?;
 
-	let mut sub = types::TypeSubstitution::new();
-	let env = types::TypeEnv::new();
-	let t = sub.reconstruct(&ast, &env).unwrap();
-    
-	println!("{ast:?}: {t}");
+        let mut sub = types::TypeSubstitution::new();
+        let env = types::TypeEnv::new();
+        let t = sub.reconstruct(&ast, &env).unwrap();
+
+        println!("{ast:?}: {t}");
     }
 }

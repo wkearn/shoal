@@ -24,7 +24,7 @@ impl std::fmt::Display for Type {
         match self {
             Self::Boolean => write!(f, "Boolean"),
             Self::Integer => write!(f, "Integer"),
-	    Self::Float32 => write!(f, "Float32"),
+            Self::Float32 => write!(f, "Float32"),
             Self::Float64 => write!(f, "Float64"),
             Self::TypeVar(s, ops) => write!(
                 f,
@@ -60,7 +60,7 @@ impl Type {
         match self {
             Type::Boolean => HashSet::new(),
             Type::Integer => HashSet::new(),
-	    Type::Float32 => HashSet::new(),
+            Type::Float32 => HashSet::new(),
             Type::Float64 => HashSet::new(),
             Type::TypeVar(s, ops) => {
                 let mut fvs = HashSet::new();
@@ -192,7 +192,7 @@ impl TypeSubstitution {
             // Primitive types return the same type
             Type::Boolean => Type::Boolean,
             Type::Integer => Type::Integer,
-	    Type::Float32 => Type::Float32,
+            Type::Float32 => Type::Float32,
             Type::Float64 => Type::Float64,
             Type::Function(arg, body) => {
                 let at = self.get(arg);
@@ -246,7 +246,7 @@ impl TypeSubstitution {
                 }
                 return true;
             }
-	    Type::Float32 => {
+            Type::Float32 => {
                 for x in xs.iter() {
                     match self.overloads.get(x) {
                         Some(ts) => {
@@ -308,7 +308,7 @@ impl TypeSubstitution {
                 Type::TypeVar(_, _) => self.unify(right, left),
                 _ => Err(Error::TypeError(format!("{left} != {right}"))),
             },
-	    Type::Float32 => match right {
+            Type::Float32 => match right {
                 Type::Float32 => Ok(()),
                 Type::TypeVar(_, _) => self.unify(right, left),
                 _ => Err(Error::TypeError(format!("{left} != {right}"))),
@@ -346,32 +346,33 @@ impl TypeSubstitution {
                         "Recursive type found: {left} == {right}"
                     )))
                 } else {
-		    match self.substitution.get(x) {
-			Some(bound) => {
-			    // If the left variable is already in the substitution,
-			    // unify its substitution with the right variable
-			    // Can we somehow avoid cloning left here?
-			    self.unify(&bound.clone(),right)
-			}
-			None => {// Substitute the right variable to make sure that it is reduced as far as possible
-			    let new_right = self.get(right);
-			    self.cs(ops, &new_right)?;
-			    self.substitution.insert(x.clone(), new_right);
-			    Ok(())
-			}
-		    }
+                    match self.substitution.get(x) {
+                        Some(bound) => {
+                            // If the left variable is already in the substitution,
+                            // unify its substitution with the right variable
+                            // Can we somehow avoid cloning left here?
+                            self.unify(&bound.clone(), right)
+                        }
+                        None => {
+                            // Substitute the right variable to make sure that it is reduced as far as possible
+                            let new_right = self.get(right);
+                            self.cs(ops, &new_right)?;
+                            self.substitution.insert(x.clone(), new_right);
+                            Ok(())
+                        }
+                    }
                 }
             }
         }
     }
-    pub fn reconstruct(&mut self, expr: &Expr, env: &TypeEnv) -> Result<Type, Error> {	
+    pub fn reconstruct(&mut self, expr: &Expr, env: &TypeEnv) -> Result<Type, Error> {
         match expr {
             Expr::BooleanLiteral(_) => Ok(Type::Boolean),
             Expr::IntegerLiteral(_) => Ok(Type::Integer),
             Expr::FloatLiteral(_) => {
-		// TODO: Literal overloading for Float64/Float32
-		Ok(Type::Float64)
-	    },
+                // TODO: Literal overloading for Float64/Float32
+                Ok(Type::Float64)
+            }
             Expr::Identifier(s) => {
                 let x = env
                     .0
@@ -475,104 +476,112 @@ impl TypeSubstitution {
                 Ok(self.get(&body_type))
             }
             Expr::App(fun, arg) => {
-		// (f:(a -> b) arg: a):b
-		let ft = self.reconstruct(fun,env)?;
-		let at = self.reconstruct(arg,env)?;
+                // (f:(a -> b) arg: a):b
+                let ft = self.reconstruct(fun, env)?;
+                let at = self.reconstruct(arg, env)?;
 
-		let rt = self.genvar();
+                let rt = self.genvar();
 
-		let tt = Type::Function(Box::new(at),Box::new(rt.clone()));
+                let tt = Type::Function(Box::new(at), Box::new(rt.clone()));
 
-		self.unify(&ft,&tt)?;
+                self.unify(&ft, &tt)?;
 
-		Ok(self.get(&rt))
-	    },
+                Ok(self.get(&rt))
+            }
             Expr::BinApp(fun, arg0, arg1) => {
-		let ft = self.reconstruct(fun,env)?;
-		let at0 = self.reconstruct(arg0,env)?;
-		let at1 = self.reconstruct(arg1,env)?;
-		
-		let rt = self.genvar();
+                let ft = self.reconstruct(fun, env)?;
+                let at0 = self.reconstruct(arg0, env)?;
+                let at1 = self.reconstruct(arg1, env)?;
 
-		let tt = Type::BinaryFunction(Box::new(at0),Box::new(at1),Box::new(rt.clone()));
+                let rt = self.genvar();
 
-		self.unify(&ft,&tt)?;
+                let tt = Type::BinaryFunction(Box::new(at0), Box::new(at1), Box::new(rt.clone()));
 
-		Ok(self.get(&rt))
-	    },
+                self.unify(&ft, &tt)?;
+
+                Ok(self.get(&rt))
+            }
             Expr::If(pred, conseq, alt) => {
-		// Predicate must be a Boolean
-		let pt = self.reconstruct(pred,env)?;
-		self.unify(&pt,&Type::Boolean)?;
+                // Predicate must be a Boolean
+                let pt = self.reconstruct(pred, env)?;
+                self.unify(&pt, &Type::Boolean)?;
 
-		// Consequent and alternative must have the same type
-		let ct = self.reconstruct(conseq,env)?;
-		let at = self.reconstruct(alt,env)?;
-		self.unify(&ct,&at)?;		
+                // Consequent and alternative must have the same type
+                let ct = self.reconstruct(conseq, env)?;
+                let at = self.reconstruct(alt, env)?;
+                self.unify(&ct, &at)?;
 
-		// Does it matter whether we return ct or at?
-		Ok(self.get(&at))
-	    },
+                // Does it matter whether we return ct or at?
+                Ok(self.get(&at))
+            }
             Expr::Map(fun, arg) => {
-		// map: ∀a b . (a -> b) -> [a] -> [b]
-		let ft = self.reconstruct(fun,env)?;
-		let at = self.reconstruct(arg,env)?;
-		match &at {
-		    Type::Array(el_type) => {
-			let rt = self.genvar();
-			let tt = Type::Function(el_type.clone(),Box::new(rt.clone()));
-			self.unify(&ft,&tt)?;
-			Ok(Type::Array(Box::new(self.get(&rt))))
-		    }
-		    _ => Err(Error::TypeError(format!("map expected array, got {at}")))
-		}		
-	    },
+                // map: ∀a b . (a -> b) -> [a] -> [b]
+                let ft = self.reconstruct(fun, env)?;
+                let at = self.reconstruct(arg, env)?;
+                match &at {
+                    Type::Array(el_type) => {
+                        let rt = self.genvar();
+                        let tt = Type::Function(el_type.clone(), Box::new(rt.clone()));
+                        self.unify(&ft, &tt)?;
+                        Ok(Type::Array(Box::new(self.get(&rt))))
+                    }
+                    _ => Err(Error::TypeError(format!("map expected array, got {at}"))),
+                }
+            }
             Expr::Reduce(fun, init, arg) => {
-		// reduce: ∀ a b . (b x a -> b) -> b -> [a] -> b
+                // reduce: ∀ a b . (b x a -> b) -> b -> [a] -> b
 
-		let ft = self.reconstruct(fun,env)?;
-		let it = self.reconstruct(init,env)?;
-		let at = self.reconstruct(arg,env)?;
+                let ft = self.reconstruct(fun, env)?;
+                let it = self.reconstruct(init, env)?;
+                let at = self.reconstruct(arg, env)?;
 
-		match &at {
-		    Type::Array(el_type) => {
-			let rt = self.genvar();
-			let tt = Type::BinaryFunction(Box::new(rt.clone()),el_type.clone(),Box::new(rt.clone()));
+                match &at {
+                    Type::Array(el_type) => {
+                        let rt = self.genvar();
+                        let tt = Type::BinaryFunction(
+                            Box::new(rt.clone()),
+                            el_type.clone(),
+                            Box::new(rt.clone()),
+                        );
 
-			self.unify(&ft,&tt)?;
-			self.unify(&it,&rt)?;
+                        self.unify(&ft, &tt)?;
+                        self.unify(&it, &rt)?;
 
-			Ok(self.get(&rt))
-		    }
-		    _ => Err(Error::TypeError(format!("reduce expected array, got {at}")))
-		}
-	    },
+                        Ok(self.get(&rt))
+                    }
+                    _ => Err(Error::TypeError(format!("reduce expected array, got {at}"))),
+                }
+            }
             Expr::Scan(fun, init, arg) => {
-		// scan: ∀ a b . (b x a -> b) -> b -> [a] -> b
+                // scan: ∀ a b . (b x a -> b) -> b -> [a] -> b
 
-		let ft = self.reconstruct(fun,env)?;
-		let it = self.reconstruct(init,env)?;
-		let at = self.reconstruct(arg,env)?;
+                let ft = self.reconstruct(fun, env)?;
+                let it = self.reconstruct(init, env)?;
+                let at = self.reconstruct(arg, env)?;
 
-		match &at {
-		    Type::Array(el_type) => {
-			let rt = self.genvar();
-			let tt = Type::BinaryFunction(Box::new(rt.clone()),el_type.clone(),Box::new(rt.clone()));
+                match &at {
+                    Type::Array(el_type) => {
+                        let rt = self.genvar();
+                        let tt = Type::BinaryFunction(
+                            Box::new(rt.clone()),
+                            el_type.clone(),
+                            Box::new(rt.clone()),
+                        );
 
-			self.unify(&ft,&tt)?;
-			self.unify(&it,&rt)?;
+                        self.unify(&ft, &tt)?;
+                        self.unify(&it, &rt)?;
 
-			Ok(Type::Array(Box::new(self.get(&rt))))
-		    }
-		    _ => Err(Error::TypeError(format!("reduce expected array, got {at}")))
-		}
-	    },
+                        Ok(Type::Array(Box::new(self.get(&rt))))
+                    }
+                    _ => Err(Error::TypeError(format!("reduce expected array, got {at}"))),
+                }
+            }
             Expr::Iota(n) => {
-		let nt = self.reconstruct(n,env)?;
-		self.unify(&nt,&Type::Integer)?;
+                let nt = self.reconstruct(n, env)?;
+                self.unify(&nt, &Type::Integer)?;
 
-		Ok(Type::Array(Box::new(Type::Integer)))
-	    },
+                Ok(Type::Array(Box::new(Type::Integer)))
+            }
         }
     }
 }
@@ -626,80 +635,95 @@ mod test {
 
     #[test]
     fn test2() {
-	let expr = parser::parse(&"(if true 1.0 2.0)".parse::<SExpr>().unwrap()).unwrap();
+        let expr = parser::parse(&"(if true 1.0 2.0)".parse::<SExpr>().unwrap()).unwrap();
 
-	let mut sub = TypeSubstitution::new();
+        let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	assert_eq!(t,Type::Float64);
+        assert_eq!(t, Type::Float64);
 
-	//
-	let expr = parser::parse(&"(if true 1 2)".parse::<SExpr>().unwrap()).unwrap();
+        //
+        let expr = parser::parse(&"(if true 1 2)".parse::<SExpr>().unwrap()).unwrap();
 
-	let mut sub = TypeSubstitution::new();
+        let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	assert_eq!(t,Type::Integer);
+        assert_eq!(t, Type::Integer);
 
-	//
-	let expr = parser::parse(&"(if true false true)".parse::<SExpr>().unwrap()).unwrap();
+        //
+        let expr = parser::parse(&"(if true false true)".parse::<SExpr>().unwrap()).unwrap();
 
-	let mut sub = TypeSubstitution::new();
+        let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	assert_eq!(t,Type::Boolean);
+        assert_eq!(t, Type::Boolean);
 
-	//
-	let expr = parser::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
+        //
+        let expr = parser::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
 
-	let mut sub = TypeSubstitution::new();
+        let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         match sub.reconstruct(&expr, &env).unwrap_err() {
-	    Error::TypeError(_) => {}
-	    _ => panic!("Expected test to throw TypeError")
-	}
+            Error::TypeError(_) => {}
+            _ => panic!("Expected test to throw TypeError"),
+        }
 
-	//
-	let expr = parser::parse(&"(if 2.0 1 2)".parse::<SExpr>().unwrap()).unwrap();
+        //
+        let expr = parser::parse(&"(if 2.0 1 2)".parse::<SExpr>().unwrap()).unwrap();
 
-	let mut sub = TypeSubstitution::new();
+        let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         match sub.reconstruct(&expr, &env).unwrap_err() {
-	    Error::TypeError(_) => {}
-	    _ => panic!("Expected test to throw TypeError")
-	}
+            Error::TypeError(_) => {}
+            _ => panic!("Expected test to throw TypeError"),
+        }
     }
-    
+
     #[test]
     fn test3() {
-	let expr = parser::parse(&"(reduce (lambda (u v) v) 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+        let expr = parser::parse(
+            &"(reduce (lambda (u v) v) 0 (iota 10))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
 
-	let mut sub = TypeSubstitution::new();
+        let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	assert_eq!(t,Type::Integer);
+        assert_eq!(t, Type::Integer);
 
-	let expr = parser::parse(&"(scan (lambda (u v) v) 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+        let expr = parser::parse(
+            &"(scan (lambda (u v) v) 0 (iota 10))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
 
-	let mut sub = TypeSubstitution::new();
+        let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	assert_eq!(t,Type::Array(Box::new(Type::Integer)))
+        assert_eq!(t, Type::Array(Box::new(Type::Integer)))
     }
 
     #[test]
     fn test4() {
-	let expr = parser::parse(&"(map (lambda (u) true) (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+        let expr = parser::parse(
+            &"(map (lambda (u) true) (iota 10))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
 
-	let mut sub = TypeSubstitution::new();
+        let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	assert_eq!(t,Type::Array(Box::new(Type::Boolean)));
+        assert_eq!(t, Type::Array(Box::new(Type::Boolean)));
     }
 }
