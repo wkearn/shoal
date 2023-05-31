@@ -173,6 +173,14 @@ impl TypeSubstitution {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn clear(&mut self) {
+	self.substitution.clear();
+
+	// The standard library uses different type variables,
+	// so resetting fresh_vars should work.
+	self.fresh_vars = 0;
+    }
     /// Generate a fresh type variable with no overloading constraints
     pub fn genvar(&mut self) -> Type {
         self.genvar_with_ops(None)

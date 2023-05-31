@@ -2,78 +2,55 @@ use crate::error;
 use crate::types::{self, Type, TypeScheme};
 use std::collections::HashSet;
 
-fn initialize_types() -> (types::TypeSubstitution,types::TypeEnv) {
+fn overload_binary_operator(sub: &mut types::TypeSubstitution, env: &mut types::TypeEnv,tv: &str, op: &str, ts: Vec<Box<str>>) {
+    let t: Box<str> = tv.into();
+    let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
+    let mut hs = HashSet::new();
+    hs.insert(t.clone());
+    env.insert(
+        op.into(),
+        TypeScheme::QuantifiedType(
+            hs,
+            Type::BinaryFunction(
+                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+            ),
+        ),
+    );
+
+    sub.insert_overload(op.into(), ts);
+}
+
+fn overload_unary_operator(sub: &mut types::TypeSubstitution, env: &mut types::TypeEnv,tv: &str, op: &str, ts: Vec<Box<str>>) {
+    let t: Box<str> = tv.into();
+    let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
+    let mut hs = HashSet::new();
+    hs.insert(t.clone());
+    env.insert(
+        op.into(),
+        TypeScheme::QuantifiedType(
+            hs,
+            Type::Function(
+                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+            ),
+        ),
+    );
+
+    sub.insert_overload(op.into(), ts);
+}
+
+pub fn initialize_types() -> (types::TypeSubstitution,types::TypeEnv) {
     // Initialize the standard library
     let mut sub = types::TypeSubstitution::new();
     let mut env = types::TypeEnv::new();
 
-    let Type::TypeVar(t1,ops) = sub.genvar_with_ops(Some("+".into())) else { unreachable!() };
-    let mut hs1 = HashSet::new();
-    hs1.insert(t1.clone());
-    env.insert(
-        "+".into(),
-        TypeScheme::QuantifiedType(
-            hs1,
-            Type::BinaryFunction(
-                Box::new(Type::TypeVar(t1.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t1.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t1.clone(), ops.clone())),
-            ),
-        ),
-    );
+    overload_binary_operator(&mut sub,&mut env,"a","+",vec!["Integer".into(), "Float32".into(), "Float64".into()]);
+    overload_binary_operator(&mut sub,&mut env,"b","-",vec!["Integer".into(), "Float32".into(), "Float64".into()]);
+    overload_binary_operator(&mut sub,&mut env,"c","max",vec!["Integer".into(), "Float32".into(), "Float64".into()]);
+    overload_unary_operator(&mut sub,&mut env,"d","exp",vec!["Float32".into(), "Float64".into()]);
 
-    let Type::TypeVar(t2,ops) = sub.genvar_with_ops(Some("-".into())) else { unreachable!() };
-    let mut hs2 = HashSet::new();
-    hs2.insert(t2.clone());
-    env.insert(
-        "-".into(),
-        TypeScheme::QuantifiedType(
-            hs2,
-            Type::BinaryFunction(
-                Box::new(Type::TypeVar(t2.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t2.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t2.clone(), ops.clone())),
-            ),
-        ),
-    );
-
-    let Type::TypeVar(t3,ops) = sub.genvar_with_ops(Some("max".into())) else { unreachable!() };
-    let mut hs3 = HashSet::new();
-    hs3.insert(t3.clone());
-    env.insert(
-        "max".into(),
-        TypeScheme::QuantifiedType(
-            hs3,
-            Type::BinaryFunction(
-                Box::new(Type::TypeVar(t3.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t3.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t3.clone(), ops.clone())),
-            ),
-        ),
-    );
-
-    let Type::TypeVar(t4,ops) = sub.genvar_with_ops(Some("exp".into())) else { unreachable!() };
-    let mut hs4 = HashSet::new();
-    hs4.insert(t4.clone());
-    env.insert(
-        "exp".into(),
-        TypeScheme::PlainType(Type::Function(
-            Box::new(Type::TypeVar(t4.clone(), ops.clone())),
-            Box::new(Type::TypeVar(t4.clone(), ops.clone())),
-        )),
-    );
-
-    let ps1: Vec<Box<str>> = vec!["Integer".into(), "Float32".into(), "Float64".into()];
-    sub.insert_overload("+".into(), ps1);
-
-    let ps2: Vec<Box<str>> = vec!["Integer".into(), "Float32".into(), "Float64".into()];
-    sub.insert_overload("-".into(), ps2);
-
-    let ps3: Vec<Box<str>> = vec!["Integer".into(), "Float32".into(), "Float64".into()];
-    sub.insert_overload("max".into(), ps3);
-
-    let ps4: Vec<Box<str>> = vec!["Float32".into(), "Float64".into()];
-    sub.insert_overload("exp".into(), ps4);
     (sub,env)
 }
 
