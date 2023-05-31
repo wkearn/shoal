@@ -116,22 +116,6 @@ impl std::fmt::Display for TypeScheme {
 }
 
 impl TypeScheme {
-    /// Check whether a type variable occurs within another constructor
-    ///
-    /// panics if `other` is a QuantifiedType, which should never be reached.
-    fn occurs_check(&self, other: &Self) -> bool {
-        if let TypeScheme::PlainType(s @ Type::TypeVar(_, _)) = self {
-            match other {
-                Self::PlainType(t) => s.occurs_check(t),
-                Self::QuantifiedType(_, _) => unreachable!(
-                    "Quantified type should be instantiated before occurs check is called"
-                ),
-            }
-        } else {
-            false
-        }
-    }
-
     fn free_vars(&self) -> HashSet<Box<str>> {
         match self {
             TypeScheme::PlainType(t) => t.free_vars(),
