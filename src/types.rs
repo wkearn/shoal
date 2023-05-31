@@ -793,4 +793,22 @@ mod test {
         let t = sub.reconstruct(&expr, &env).unwrap();
         assert_eq!(t, Type::Array(Box::new(Type::Integer)));
     }
+
+    #[test]
+    fn test7() {
+        // Lambda application
+        let expr =
+            parser::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
+
+        let (mut sub, env) = crate::stdlib::initialize_types();
+
+        let t = sub.reconstruct(&expr, &env).unwrap();
+        assert_eq!(
+            t,
+            Type::Function(
+                Box::new(Type::Array(Box::new(Type::Integer))),
+                Box::new(Type::Integer)
+            )
+        );
+    }
 }
