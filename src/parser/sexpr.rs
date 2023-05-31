@@ -309,4 +309,23 @@ mod test {
             .parse::<SExpr>()
             .unwrap_err();
     }
+
+    
+    #[test]
+    fn extra_whitespace() {
+        let SExpr::List(_,start_pos,end_pos) = "(+ 1 2 )"
+            .parse()
+            .unwrap() else { panic!("Expected a list") };
+
+	assert_eq!(Position::new(1,0),start_pos);
+	assert_eq!(Position::new(1,7),end_pos);
+
+	let SExpr::List(_,start_pos,end_pos) = "(+ 1 2
+)"
+            .parse()
+            .unwrap() else { panic!("Expected a list") };
+
+	assert_eq!(Position::new(1,0),start_pos);
+	assert_eq!(Position::new(2,0),end_pos);
+    }
 }
