@@ -328,4 +328,61 @@ mod test {
 	assert_eq!(Position::new(1,0),start_pos);
 	assert_eq!(Position::new(2,0),end_pos);
     }
+
+    #[test]
+    fn easy_list() {
+        let SExpr::List(vs,start_pos,end_pos) = "(one)"
+            .parse()
+            .unwrap() else { panic!("Expected a list") };
+
+	assert_eq!(Position::new(1,0),start_pos);
+	assert_eq!(Position::new(1,4),end_pos);
+
+	match &vs[0] {
+	    SExpr::Atom(s,vstart,vend) => {
+		assert_eq!(&**s,"one");
+		assert_eq!(&Position::new(1,1),vstart);
+		assert_eq!(&Position::new(1,3),vend);
+		    
+	    }
+	    _ => panic!("Expected atom")
+	}
+    }
+
+    #[test]
+    fn easy_list_whitespace() {
+        let SExpr::List(vs,start_pos,end_pos) = "( one)"
+            .parse()
+            .unwrap() else { panic!("Expected a list") };
+
+	assert_eq!(Position::new(1,0),start_pos);
+	assert_eq!(Position::new(1,5),end_pos);
+
+	match &vs[0] {
+	    SExpr::Atom(s,vstart,vend) => {
+		assert_eq!(&**s,"one");
+		assert_eq!(&Position::new(1,2),vstart);
+		assert_eq!(&Position::new(1,4),vend);
+		    
+	    }
+	    _ => panic!("Expected atom")
+	}
+
+	let SExpr::List(vs,start_pos,end_pos) = "(one )"
+            .parse()
+            .unwrap() else { panic!("Expected a list") };
+
+	assert_eq!(Position::new(1,0),start_pos);
+	assert_eq!(Position::new(1,5),end_pos);
+
+	match &vs[0] {
+	    SExpr::Atom(s,vstart,vend) => {
+		assert_eq!(&**s,"one");
+		assert_eq!(&Position::new(1,2),vstart);
+		assert_eq!(&Position::new(1,4),vend);
+		    
+	    }
+	    _ => panic!("Expected atom")
+	}
+    }
 }
