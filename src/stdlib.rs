@@ -1,4 +1,3 @@
-use crate::error;
 use crate::types::{self, Type, TypeScheme};
 use std::collections::HashSet;
 
