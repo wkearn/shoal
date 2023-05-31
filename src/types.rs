@@ -155,6 +155,10 @@ impl TypeEnv {
         }
         fvs
     }
+
+    pub fn insert(&mut self,k: Box<str>, v: TypeScheme) -> Option<TypeScheme> {
+	self.0.insert(k,v)
+    }
 }
 
 /// A type substitution maps type variables to type schemes
@@ -170,12 +174,12 @@ impl TypeSubstitution {
         Self::default()
     }
     /// Generate a fresh type variable with no overloading constraints
-    fn genvar(&mut self) -> Type {
+    pub fn genvar(&mut self) -> Type {
         self.genvar_with_ops(None)
     }
 
     /// Generate a fresh type variable with a set of overloading constraints
-    fn genvar_with_ops<I>(&mut self, ops: I) -> Type
+    pub fn genvar_with_ops<I>(&mut self, ops: I) -> Type
     where
         I: IntoIterator<Item = Box<str>>,
     {
@@ -184,6 +188,10 @@ impl TypeSubstitution {
 
         let ops_hs = ops.into_iter().collect();
         Type::TypeVar(s.into(), ops_hs)
+    }
+
+    pub fn insert_overload(&mut self,k: Box<str>, v: Vec<Box<str>>) -> Option<Vec<Box<str>>> {
+	self.overloads.insert(k,v)
     }
 
     /// Apply the type substitution to a Type

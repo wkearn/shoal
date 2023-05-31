@@ -1,5 +1,6 @@
 pub mod error;
 pub mod parser;
+pub mod stdlib;
 pub mod types;
 
 use crate::error::Error;
@@ -28,30 +29,29 @@ pub fn repl() -> Result<(), Error> {
         };
 
         match source.parse::<parser::sexpr::SExpr>() {
-	    Ok(ex) => {
-		match parser::parse(&ex) {
-		    Ok(ast) => {let mut sub = types::TypeSubstitution::new();
-				let env = types::TypeEnv::new();
-				match sub.reconstruct(&ast, &env) {
-				    Ok(t) => {
-					println!("{ast:?}: {t}");
-				    }
-				    Err(e) => {
-					eprintln!("{}",e);
-					continue;
-				    }
-				}}
-		    Err(e) => {
-			eprintln!("{}",e);
-			continue;
-		    }
-		}
-	    },
-	    Err(e) => {
-		eprintln!("{}",e);
-		continue;
-	    }
-	};
-        
+            Ok(ex) => match parser::parse(&ex) {
+                Ok(ast) => {
+                    let mut sub = types::TypeSubstitution::new();
+                    let env = types::TypeEnv::new();
+                    match sub.reconstruct(&ast, &env) {
+                        Ok(t) => {
+                            println!("{ast:?}: {t}");
+                        }
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            continue;
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{}", e);
+                    continue;
+                }
+            },
+            Err(e) => {
+                eprintln!("{}", e);
+                continue;
+            }
+        };
     }
 }
