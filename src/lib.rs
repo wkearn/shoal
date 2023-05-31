@@ -7,7 +7,12 @@ use crate::error::Error;
 pub fn run(src: &str) -> Result<(), Error> {
     let ex: parser::sexpr::SExpr = src.parse()?;
     let ast = parser::parse(&ex)?;
-    println!("{ast:?}");
+
+    let mut sub = types::TypeSubstitution::new();
+    let env = types::TypeEnv::new();
+    let t = sub.reconstruct(&ast, &env).unwrap();
+    
+    println!("{ast:?}: {t}");
     Ok(())
 }
 
@@ -24,6 +29,11 @@ pub fn repl() -> Result<(), Error> {
 
         let ex: parser::sexpr::SExpr = source.parse()?;
         let ast = parser::parse(&ex)?;
-        println!("{ast:?}");
+
+	let mut sub = types::TypeSubstitution::new();
+	let env = types::TypeEnv::new();
+	let t = sub.reconstruct(&ast, &env).unwrap();
+    
+	println!("{ast:?}: {t}");
     }
 }
