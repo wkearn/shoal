@@ -369,7 +369,10 @@ impl TypeSubstitution {
         match expr {
             Expr::BooleanLiteral(_) => Ok(Type::Boolean),
             Expr::IntegerLiteral(_) => Ok(Type::Integer),
-            Expr::FloatLiteral(_) => Ok(Type::Float64),
+            Expr::FloatLiteral(_) => {
+		// TODO: Literal overloading for Float64/Float32
+		Ok(Type::Float64)
+	    },
             Expr::Identifier(s) => {
                 let x = env
                     .0
