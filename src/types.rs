@@ -796,7 +796,6 @@ mod test {
 
     #[test]
     fn test7() {
-        // Lambda application
         let expr =
             parser::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
 
