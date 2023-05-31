@@ -1,14 +1,38 @@
 use crate::types::{self, Type, TypeScheme};
 use std::collections::HashSet;
 
-fn overload_binary_operator(
+fn define_comparison_operator(
     sub: &mut types::TypeSubstitution,
     env: &mut types::TypeEnv,
-    tv: &str,
     op: &str,
     ts: Vec<Box<str>>,
 ) {
-    let t: Box<str> = tv.into();
+    let t: Box<str> = "?S0".into();
+    let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
+    let mut hs = Vec::new();
+    hs.push(Type::TypeVar(t.clone(), ops.clone()));
+    env.insert(
+        op.into(),
+        TypeScheme::QuantifiedType(
+            hs,
+            Type::BinaryFunction(
+                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+                Box::new(Type::Boolean),
+            ),
+        ),
+    );
+
+    sub.insert_overload(op.into(), ts);
+}
+
+fn define_binary_operator(
+    sub: &mut types::TypeSubstitution,
+    env: &mut types::TypeEnv,
+    op: &str,
+    ts: Vec<Box<str>>,
+) {
+    let t: Box<str> = "?S0".into();
     let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
     hs.push(Type::TypeVar(t.clone(), ops.clone()));
@@ -27,14 +51,13 @@ fn overload_binary_operator(
     sub.insert_overload(op.into(), ts);
 }
 
-fn overload_unary_operator(
+fn define_unary_operator(
     sub: &mut types::TypeSubstitution,
     env: &mut types::TypeEnv,
-    tv: &str,
     op: &str,
     ts: Vec<Box<str>>,
 ) {
-    let t: Box<str> = tv.into();
+    let t: Box<str> = "?S0".into();
     let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
     hs.push(Type::TypeVar(t.clone(), ops.clone()));
@@ -57,35 +80,122 @@ pub fn initialize_types() -> (types::TypeSubstitution, types::TypeEnv) {
     let mut sub = types::TypeSubstitution::new();
     let mut env = types::TypeEnv::new();
 
-    overload_binary_operator(
+    define_binary_operator(
         &mut sub,
         &mut env,
-        "a",
         "+",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
-    overload_binary_operator(
+    define_binary_operator(
         &mut sub,
         &mut env,
-        "b",
         "-",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
-    overload_binary_operator(
+    define_binary_operator(
         &mut sub,
         &mut env,
-        "c",
+        "*",
+        vec!["Integer".into(), "Float32".into(), "Float64".into()],
+    );
+    define_binary_operator(
+        &mut sub,
+        &mut env,
+        "/",
+        vec!["Float32".into(), "Float64".into()],
+    );
+    define_binary_operator(
+        &mut sub,
+        &mut env,
+        "div",
+        vec!["Integer".into()]
+    );
+    define_binary_operator(
+        &mut sub,
+        &mut env,
+        "mod",
+        vec!["Integer".into()]
+    );
+    define_binary_operator(
+        &mut sub,
+        &mut env,
         "max",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
-    overload_unary_operator(
+    define_binary_operator(
         &mut sub,
         &mut env,
-        "d",
+        "min",
+        vec!["Integer".into(), "Float32".into(), "Float64".into()],
+    );
+    define_unary_operator(
+        &mut sub,
+        &mut env,
         "exp",
         vec!["Float32".into(), "Float64".into()],
     );
-
+    define_unary_operator(
+        &mut sub,
+        &mut env,
+        "sin",
+        vec!["Float32".into(), "Float64".into()],
+    );
+    define_unary_operator(
+        &mut sub,
+        &mut env,
+        "cos",
+        vec!["Float32".into(), "Float64".into()],
+    );
+    define_unary_operator(
+        &mut sub,
+        &mut env,
+        "tan",
+        vec!["Float32".into(), "Float64".into()],
+    );
+    define_unary_operator(
+        &mut sub,
+        &mut env,
+        "log",
+        vec!["Float32".into(), "Float64".into()],
+    );
+    define_comparison_operator(
+        &mut sub,
+        &mut env,
+        ">",
+        vec!["Integer".into(),"Float32".into(),"Float64".into()]
+    );
+    define_comparison_operator(
+        &mut sub,
+        &mut env,
+        ">=",
+        vec!["Integer".into(),"Float32".into(),"Float64".into()]
+    );
+    define_comparison_operator(
+        &mut sub,
+        &mut env,
+        "<",
+        vec!["Integer".into(),"Float32".into(),"Float64".into()]
+    );
+    define_comparison_operator(
+        &mut sub,
+        &mut env,
+        "<=",
+        vec!["Integer".into(),"Float32".into(),"Float64".into()]
+    );
+    define_comparison_operator(
+        &mut sub,
+        &mut env,
+        "==",
+        vec!["Boolean".into(),"Integer".into(),"Float32".into(),"Float64".into()]
+    );
+    define_comparison_operator(
+        &mut sub,
+        &mut env,
+        "!=",
+        vec!["Boolean".into(),"Integer".into(),"Float32".into(),"Float64".into()]
+    );
+    
+    
     (sub, env)
 }
 
@@ -168,5 +278,44 @@ mod test {
 	    .reconstruct(&expr, &env)
 	    .unwrap_err()
 	else { panic!("Encountered unexpected error type") };
+    }
+
+    #[test]
+    fn comparison_test() {	
+        let expr = parse(
+            &"
+(let ((p1 (lambda (u v) (< u v))))
+  (let ((p2 (lambda (u v) (<= u v))))
+    (let ((p3 (lambda (u v) (> u v))))
+      (let ((p4 (lambda (u v) (>= u v))))
+	(let ((p5 (lambda (u v) (== u v))))
+	  (let ((p6 (lambda (u v) (!= u v))))
+	    (if (p1 1.0 2.0)
+		(if (p1 1 2)
+		    (p2 1.0 2.0)
+		    (p2 1.0 2.0))
+		(if (p2 1 2)
+		    (p3 1.0 2.0)
+		    (if (p3 1 2)
+			(if (p4 1.0 2.0)
+			    (p4 1 2)
+			    (if (p5 1.0 2.0)
+				(p5 1 2)
+				(if (p5 true false)
+				    (p6 1.0 2.0)
+				    (if (p6 1 2)
+					(p6 true false)
+					true))))
+			true)))))))))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let (mut sub, env) = initialize_types();
+
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+        assert_eq!(t, Type::Boolean);
     }
 }
