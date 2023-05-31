@@ -56,15 +56,15 @@ impl Type {
         }
     }
 
-    fn free_vars(&self) -> HashSet<Box<str>> {
+    fn free_vars(&self) -> HashMap<Box<str>, HashSet<Box<str>>> {
         match self {
-            Type::Boolean => HashSet::new(),
-            Type::Integer => HashSet::new(),
-            Type::Float32 => HashSet::new(),
-            Type::Float64 => HashSet::new(),
-            Type::TypeVar(s, _) => {
-                let mut fvs = HashSet::new();
-                fvs.insert(s.clone());
+            Type::Boolean => HashMap::new(),
+            Type::Integer => HashMap::new(),
+            Type::Float32 => HashMap::new(),
+            Type::Float64 => HashMap::new(),
+            Type::TypeVar(s, ops) => {
+                let mut fvs = HashMap::new();
+                fvs.insert(s.clone(), ops.clone());
                 fvs
             }
             Type::Array(body) => body.free_vars(),
@@ -86,12 +86,16 @@ impl Type {
     }
 
     fn generalize(self, env: &TypeEnv) -> TypeScheme {
-        let fvs = self
-            .free_vars()
-            .difference(&env.free_vars())
-            .cloned()
-            .collect();
-        TypeScheme::QuantifiedType(fvs, self)
+        let fvs = self.free_vars();
+        let evs = env.free_vars();
+        let mut qts = Vec::new();
+
+        for (k, v) in fvs {
+            if !evs.contains_key(&k) {
+                qts.push(Type::TypeVar(k.clone(), v.clone()))
+            }
+        }
+        TypeScheme::QuantifiedType(qts, self)
     }
 }
 
@@ -99,7 +103,7 @@ impl Type {
 /// A type scheme universally quantifies Types
 pub enum TypeScheme {
     PlainType(Type),
-    QuantifiedType(HashSet<Box<str>>, Type),
+    QuantifiedType(Vec<Type>, Type),
 }
 
 impl std::fmt::Display for TypeScheme {
@@ -109,17 +113,35 @@ impl std::fmt::Display for TypeScheme {
             Self::QuantifiedType(vars, t) => write!(
                 f,
                 "∀{} . {t}",
-                vars.iter().cloned().collect::<Vec<Box<str>>>().join(" "),
+                vars.iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(" "),
             ),
         }
     }
 }
 
 impl TypeScheme {
-    fn free_vars(&self) -> HashSet<Box<str>> {
+    fn free_vars(&self) -> HashMap<Box<str>, HashSet<Box<str>>> {
         match self {
             TypeScheme::PlainType(t) => t.free_vars(),
-            TypeScheme::QuantifiedType(fvs, t) => t.free_vars().difference(fvs).cloned().collect(),
+            TypeScheme::QuantifiedType(fvs, t) => {
+                let mut tvs = t.free_vars();
+                let qts: HashMap<Box<str>, HashSet<Box<str>>> = fvs
+                    .iter()
+                    .cloned()
+                    .filter_map(|t| match t {
+                        Type::TypeVar(u, ops) => Some((u, ops)),
+                        _ => None,
+                    })
+                    .collect();
+
+                for k in qts.keys() {
+                    tvs.remove(k);
+                }
+                tvs
+            }
         }
     }
 }
@@ -132,8 +154,8 @@ impl TypeEnv {
         Self::default()
     }
 
-    fn free_vars(&self) -> HashSet<Box<str>> {
-        let mut fvs = HashSet::new();
+    fn free_vars(&self) -> HashMap<Box<str>, HashSet<Box<str>>> {
+        let mut fvs = HashMap::new();
         for t in self.0.values() {
             fvs.extend(t.free_vars().into_iter());
         }
@@ -385,9 +407,16 @@ impl TypeSubstitution {
                         let mut local_sub = TypeSubstitution::new();
                         for v in vs {
                             // TODO: instantiate TypeVars with appropriate ops for each v in vs
-                            local_sub
-                                .substitution
-                                .insert(v.clone(), self.genvar_with_ops(None));
+                            // QuantifiedType needs to hang on to the ops each v in vs,
+                            // but right now it hangs on to just the name
+                            match v {
+                                Type::TypeVar(u, ops) => {
+                                    local_sub
+                                        .substitution
+                                        .insert(u.clone(), self.genvar_with_ops(ops.clone()));
+                                }
+                                _ => {}
+                            }
                         }
                         let tt = local_sub.get(t);
                         Ok(tt)

@@ -10,8 +10,8 @@ fn overload_binary_operator(
 ) {
     let t: Box<str> = tv.into();
     let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
-    let mut hs = HashSet::new();
-    hs.insert(t.clone());
+    let mut hs = Vec::new();
+    hs.push(Type::TypeVar(t.clone(), ops.clone()));
     env.insert(
         op.into(),
         TypeScheme::QuantifiedType(
@@ -36,8 +36,8 @@ fn overload_unary_operator(
 ) {
     let t: Box<str> = tv.into();
     let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
-    let mut hs = HashSet::new();
-    hs.insert(t.clone());
+    let mut hs = Vec::new();
+    hs.push(Type::TypeVar(t.clone(), ops.clone()));
     env.insert(
         op.into(),
         TypeScheme::QuantifiedType(
@@ -164,6 +164,9 @@ mod test {
         let (mut sub, env) = initialize_types();
 
         // This should throw a TypeError because Boolean is an invalid overloading of +
-        sub.reconstruct(&expr, &env).unwrap_err();
+        let crate::error::Error::TypeError(e) = sub
+	    .reconstruct(&expr, &env)
+	    .unwrap_err()
+	else { panic!("Encountered unexpected error type") };
     }
 }
