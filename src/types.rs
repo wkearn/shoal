@@ -62,7 +62,7 @@ impl Type {
             Type::Integer => HashSet::new(),
             Type::Float32 => HashSet::new(),
             Type::Float64 => HashSet::new(),
-            Type::TypeVar(s, ops) => {
+            Type::TypeVar(s, _) => {
                 let mut fvs = HashSet::new();
                 fvs.insert(s.clone());
                 fvs
