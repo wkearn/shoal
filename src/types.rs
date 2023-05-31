@@ -166,7 +166,7 @@ pub struct TypeSubstitution {
 }
 
 impl TypeSubstitution {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
     /// Generate a fresh type variable with no overloading constraints
@@ -297,7 +297,6 @@ impl TypeSubstitution {
 
     /// Unify the left and right types in the given substitution
     fn unify(&mut self, left: &Type, right: &Type) -> Result<(), Error> {
-	println!("Unifying {left} and {right}");
         match left {
             Type::Boolean => match right {
                 Type::Boolean => Ok(()),
@@ -478,12 +477,9 @@ impl TypeSubstitution {
             Expr::App(fun, arg) => {
 		// (f:(a -> b) arg: a):b
 		let ft = self.reconstruct(fun,env)?;
-		println!("Function {ft}");
 		let at = self.reconstruct(arg,env)?;
-		println!("Argument {at}");
 
 		let rt = self.genvar();
-		println!("Return {rt}");
 
 		let tt = Type::Function(Box::new(at),Box::new(rt.clone()));
 
