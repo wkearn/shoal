@@ -27,13 +27,31 @@ pub fn repl() -> Result<(), Error> {
             }
         };
 
-        let ex: parser::sexpr::SExpr = source.parse()?;
-        let ast = parser::parse(&ex)?;
-
-        let mut sub = types::TypeSubstitution::new();
-        let env = types::TypeEnv::new();
-        let t = sub.reconstruct(&ast, &env).unwrap();
-
-        println!("{ast:?}: {t}");
+        match source.parse::<parser::sexpr::SExpr>() {
+	    Ok(ex) => {
+		match parser::parse(&ex) {
+		    Ok(ast) => {let mut sub = types::TypeSubstitution::new();
+				let env = types::TypeEnv::new();
+				match sub.reconstruct(&ast, &env) {
+				    Ok(t) => {
+					println!("{ast:?}: {t}");
+				    }
+				    Err(e) => {
+					eprintln!("{}",e);
+					continue;
+				    }
+				}}
+		    Err(e) => {
+			eprintln!("{}",e);
+			continue;
+		    }
+		}
+	    },
+	    Err(e) => {
+		eprintln!("{}",e);
+		continue;
+	    }
+	};
+        
     }
 }
