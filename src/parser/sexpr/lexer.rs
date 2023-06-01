@@ -33,6 +33,17 @@ pub enum TokenKind {
     Eof,
 }
 
+impl std::fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+	match self {
+	    Self::LeftParen => write!(f,"("),
+	    Self::RightParen => write!(f,")"),
+	    Self::String => write!(f,"<string>"),
+	    Self::Eof => write!(f,"<EOF>"),
+	}
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
