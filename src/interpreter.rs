@@ -27,10 +27,10 @@ impl std::fmt::Display for Value {
                     .collect::<Vec<String>>()
                     .join(",")
             ),
-            Value::Function(arg, body, closure) => {
+            Value::Function(_, _, _) => {
                 write!(f, "lambda")
             }
-            Value::BinaryFunction(arg0, arg1, body, closure) => {
+            Value::BinaryFunction(_, _, _, _) => {
                 write!(f, "binlambda")
             }
         }
