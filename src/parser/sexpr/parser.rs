@@ -80,10 +80,13 @@ impl Parser {
         if self.accept(kind) {
             Ok(())
         } else {
-	    let found = self.tokens
-		.get(self.pos)
-		.map_or(&TokenKind::Eof, |t| &t.kind);
-            Err(Error::SyntaxError(format!("Expected token {kind}, found token: {found}")))
+            let found = self
+                .tokens
+                .get(self.pos)
+                .map_or(&TokenKind::Eof, |t| &t.kind);
+            Err(Error::SyntaxError(format!(
+                "Expected token {kind}, found token: {found}"
+            )))
         }
     }
 
@@ -93,7 +96,7 @@ impl Parser {
 		// Should be unreachable because we just confirmed that we hit a LeftParen
 		unreachable!()
 	    };
-	    self.pos += 1;
+            self.pos += 1;
             let v = self.list(*start_pos)?;
             self.expect(&TokenKind::RightParen)?;
             Ok(v)
@@ -109,15 +112,18 @@ impl Parser {
             let e = self.datum()?;
             v.push(e);
         }
-	let Some(Token {kind: TokenKind::RightParen, end_pos, ..}) = self.tokens.get(self.pos) else {
+        let Some(Token {kind: TokenKind::RightParen, end_pos, ..}) = self.tokens.get(self.pos) else {
 	    // Should be unreachable because we just confirmed that we hit a LeftParen
 	    unreachable!()
 	};
-        Ok(SExpr::List(v, start_pos,*end_pos))
+        Ok(SExpr::List(v, start_pos, *end_pos))
     }
 
     fn simple(&mut self) -> Result<SExpr, Error> {
-        let t = self.tokens.get(self.pos).ok_or(Error::SyntaxError("Unexpected end of file".into()))?;
+        let t = self
+            .tokens
+            .get(self.pos)
+            .ok_or(Error::SyntaxError("Unexpected end of file".into()))?;
         self.pos += 1;
 
         if let Some(data) = &t.data {
@@ -133,7 +139,10 @@ impl Parser {
                 Ok(SExpr::Atom(data.clone(), t.start_pos, t.end_pos))
             }
         } else {
-            Err(Error::SyntaxError(format!("[{}]: Expected <string> token, found {}",t.start_pos,t.kind)))
+            Err(Error::SyntaxError(format!(
+                "[{}]: Expected <string> token, found {}",
+                t.start_pos, t.kind
+            )))
         }
     }
 }

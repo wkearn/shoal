@@ -5,6 +5,7 @@ pub enum Error {
     SyntaxError(String),
     UndefinedVariableError(String),
     TypeError(String),
+    RuntimeError(String),
 }
 
 impl std::fmt::Display for Error {
@@ -15,6 +16,7 @@ impl std::fmt::Display for Error {
             Error::SyntaxError(s) => write!(f, "Syntax error: {}", s),
             Error::UndefinedVariableError(v) => write!(f, "Error: variable {} is not defined", v),
             Error::TypeError(s) => write!(f, "Type error: {}", s),
+            Error::RuntimeError(s) => write!(f, "Runtime error: {}", s),
         }
     }
 }

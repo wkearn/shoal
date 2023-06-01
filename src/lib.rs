@@ -1,4 +1,5 @@
 pub mod error;
+pub mod interpreter;
 pub mod parser;
 pub mod stdlib;
 pub mod types;
@@ -10,9 +11,11 @@ pub fn run(src: &str) -> Result<(), Error> {
     let ast = parser::parse(&ex)?;
 
     let (mut sub, env) = stdlib::initialize_types();
-    let t = sub.reconstruct(&ast, &env).unwrap();
+    let t = sub.reconstruct(&ast, &env)?;
 
-    println!("{ast:?}: {t}");
+    let v = interpreter::eval(&ast, &interpreter::Env)?;
+
+    println!("{v}");
     Ok(())
 }
 
@@ -35,6 +38,13 @@ pub fn repl() -> Result<(), Error> {
                     match sub.reconstruct(&ast, &env) {
                         Ok(t) => {
                             println!("{ast:?}: {t}");
+                            match interpreter::eval(&ast, &interpreter::Env) {
+                                Ok(v) => println!("{v}"),
+                                Err(e) => {
+                                    eprintln!("{}", e);
+                                    continue;
+                                }
+                            }
                         }
                         Err(e) => {
                             eprintln!("{}", e);
