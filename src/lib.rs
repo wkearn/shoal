@@ -14,8 +14,8 @@ pub fn run(src: &str) -> Result<(), Error> {
     let t = sub.reconstruct(&ast, &env)?;
 
     println!("{ast:?}: {t}");
-    let v = interpreter::eval(&ast, &interpreter::Env)?;
-    
+    let v = interpreter::eval(&ast, &interpreter::Env::new())?;
+
     println!("{v}");
     Ok(())
 }
@@ -39,7 +39,7 @@ pub fn repl() -> Result<(), Error> {
                     match sub.reconstruct(&ast, &env) {
                         Ok(t) => {
                             println!("{ast:?}: {t}");
-                            match interpreter::eval(&ast, &interpreter::Env) {
+                            match interpreter::eval(&ast, &interpreter::Env::new()) {
                                 Ok(v) => println!("{v}"),
                                 Err(e) => {
                                     eprintln!("{}", e);
