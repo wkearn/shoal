@@ -80,7 +80,10 @@ impl Parser {
         if self.accept(kind) {
             Ok(())
         } else {
-            Err(Error::SyntaxError("Unexpected symbol".into()))
+	    let found = self.tokens
+		.get(self.pos)
+		.map_or(&TokenKind::Eof, |t| &t.kind);
+            Err(Error::SyntaxError(format!("Expected token {kind}, found token: {found}")))
         }
     }
 
@@ -114,7 +117,7 @@ impl Parser {
     }
 
     fn simple(&mut self) -> Result<SExpr, Error> {
-        let t = self.tokens.get(self.pos).ok_or(Error::ParseError)?;
+        let t = self.tokens.get(self.pos).ok_or(Error::SyntaxError("Unexpected end of file".into()))?;
         self.pos += 1;
 
         if let Some(data) = &t.data {
@@ -130,7 +133,7 @@ impl Parser {
                 Ok(SExpr::Atom(data.clone(), t.start_pos, t.end_pos))
             }
         } else {
-            Err(Error::ParseError)
+            Err(Error::SyntaxError(format!("[{}]: Expected <string> token, found {}",t.start_pos,t.kind)))
         }
     }
 }
