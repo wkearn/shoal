@@ -64,10 +64,12 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
             env.clone(),
         )),
         Expr::Let(arg, def, body) => {
-	    let defval = eval(def,env)?;
-	    let mut local_env = Env::new(); // Create a new local environment
-                                                        // Add existing environment entries
-            local_env.0.extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+            let defval = eval(def, env)?;
+            let mut local_env = Env::new(); // Create a new local environment
+                                            // Add existing environment entries
+            local_env
+                .0
+                .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
             local_env.0.insert(arg.clone(), defval); // Bind the function args
 
             eval(&body, &local_env)
@@ -77,8 +79,10 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                 Value::Function(funarg, funbody, closure) => {
                     let argval = eval(arg, env)?;
                     let mut local_env = Env::new(); // Create a new local environment
-                                                        // Add existing environment entries
-                    local_env.0.extend(closure.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+                                                    // Add existing environment entries
+                    local_env
+                        .0
+                        .extend(closure.0.iter().map(|(k, v)| (k.clone(), v.clone())));
                     local_env.0.insert(funarg, argval); // Bind the function args
 
                     eval(&funbody, &local_env)
@@ -132,7 +136,7 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                                     eval(&funbody, &local_env)
                                 })
                                 .collect::<Result<Box<[Value]>, Error>>()?;
-			    Ok(Value::Array(ys))
+                            Ok(Value::Array(ys))
                         }
                         _ => Err(Error::RuntimeError(
                             "Map argument evaluated to a value of incorrect type".into(),
@@ -145,9 +149,9 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
             }
         }
         Expr::Reduce(fun, init, arr) => {
-	    match eval(fun, env)? {
+            match eval(fun, env)? {
                 Value::BinaryFunction(funarg0, funarg1, funbody, closure) => {
-		    let initval = eval(init,env)?;
+                    let initval = eval(init, env)?;
                     match eval(arr, env)? {
                         Value::Array(xs) => {
                             let mut local_env = Env::new(); // Create a new local environment
@@ -155,14 +159,12 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                             local_env
                                 .0
                                 .extend(closure.0.iter().map(|(k, v)| (k.clone(), v.clone())));
-                            let y = xs
-                                .iter()
-                                .try_fold(initval,|acc,x| {
-                                    local_env.0.insert(funarg0.clone(), acc.clone());
-				    local_env.0.insert(funarg1.clone(), x.clone());
-                                    eval(&funbody, &local_env)
-                                })?;
-			    Ok(y)
+                            let y = xs.iter().try_fold(initval, |acc, x| {
+                                local_env.0.insert(funarg0.clone(), acc.clone());
+                                local_env.0.insert(funarg1.clone(), x.clone());
+                                eval(&funbody, &local_env)
+                            })?;
+                            Ok(y)
                         }
                         _ => Err(Error::RuntimeError(
                             "Reduce argument evaluated to a value of incorrect type".into(),
@@ -175,9 +177,9 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
             }
         }
         Expr::Scan(fun, init, arr) => {
-	    match eval(fun, env)? {
+            match eval(fun, env)? {
                 Value::BinaryFunction(funarg0, funarg1, funbody, closure) => {
-		    let initval = eval(init,env)?;
+                    let initval = eval(init, env)?;
                     match eval(arr, env)? {
                         Value::Array(xs) => {
                             let mut local_env = Env::new(); // Create a new local environment
@@ -187,15 +189,16 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                                 .extend(closure.0.iter().map(|(k, v)| (k.clone(), v.clone())));
                             let ys = xs
                                 .iter()
-                                .scan(initval,|acc,x| {
+                                .scan(initval, |acc, x| {
                                     local_env.0.insert(funarg0.clone(), acc.clone());
-				    local_env.0.insert(funarg1.clone(), x.clone());				    
+                                    local_env.0.insert(funarg1.clone(), x.clone());
                                     match eval(&funbody, &local_env) {
-					Ok(v) => Some(v),
-					Err(_) => None,					    
-				    }
-                                }).collect();
-			    Ok(Value::Array(ys))
+                                        Ok(v) => Some(v),
+                                        Err(_) => None,
+                                    }
+                                })
+                                .collect();
+                            Ok(Value::Array(ys))
                         }
                         _ => Err(Error::RuntimeError(
                             "Scan argument evaluated to a value of incorrect type".into(),
@@ -205,7 +208,7 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                 _ => Err(Error::RuntimeError(
                     "Scan head evaluated to a value of incorrect type".into(),
                 )),
-	    }
+            }
         }
         Expr::Iota(num) => match eval(num, env)? {
             Value::Integer(n) => Ok(Value::Array(
