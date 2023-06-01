@@ -1,9 +1,19 @@
+use crate::interpreter::{
+    primitives::{PrimitiveBinaryOp, PrimitiveUnaryOp},
+    Env, PrimitiveTable, Value,
+};
 use crate::types::{self, Type, TypeScheme};
 use std::collections::HashSet;
 
+pub mod comparisons;
+pub mod numeric;
+
 fn define_comparison_operator(
     sub: &mut types::TypeSubstitution,
-    env: &mut types::TypeEnv,
+    type_env: &mut types::TypeEnv,
+    env: &mut Env,
+    prims: &mut PrimitiveTable,
+    prim_op: impl PrimitiveBinaryOp + 'static,
     op: &str,
     ts: Vec<Box<str>>,
 ) {
@@ -11,7 +21,7 @@ fn define_comparison_operator(
     let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
     hs.push(Type::TypeVar(t.clone(), ops.clone()));
-    env.insert(
+    type_env.insert(
         op.into(),
         TypeScheme::QuantifiedType(
             hs,
@@ -24,11 +34,17 @@ fn define_comparison_operator(
     );
 
     sub.insert_overload(op.into(), ts);
+
+    env.insert(op.into(), Value::PrimitiveFunction(op.into()));
+    prims.insert(op.into(), prim_op);
 }
 
 fn define_binary_operator(
     sub: &mut types::TypeSubstitution,
-    env: &mut types::TypeEnv,
+    type_env: &mut types::TypeEnv,
+    env: &mut Env,
+    prims: &mut PrimitiveTable,
+    prim_op: impl PrimitiveBinaryOp + 'static,
     op: &str,
     ts: Vec<Box<str>>,
 ) {
@@ -36,7 +52,7 @@ fn define_binary_operator(
     let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
     hs.push(Type::TypeVar(t.clone(), ops.clone()));
-    env.insert(
+    type_env.insert(
         op.into(),
         TypeScheme::QuantifiedType(
             hs,
@@ -49,11 +65,17 @@ fn define_binary_operator(
     );
 
     sub.insert_overload(op.into(), ts);
+
+    env.insert(op.into(), Value::PrimitiveFunction(op.into()));
+    prims.insert(op.into(), prim_op);
 }
 
 fn define_unary_operator(
     sub: &mut types::TypeSubstitution,
-    env: &mut types::TypeEnv,
+    type_env: &mut types::TypeEnv,
+    env: &mut Env,
+    prims: &mut PrimitiveTable,
+    prim_op: impl PrimitiveUnaryOp + 'static,
     op: &str,
     ts: Vec<Box<str>>,
 ) {
@@ -61,7 +83,7 @@ fn define_unary_operator(
     let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
     hs.push(Type::TypeVar(t.clone(), ops.clone()));
-    env.insert(
+    type_env.insert(
         op.into(),
         TypeScheme::QuantifiedType(
             hs,
@@ -73,108 +95,177 @@ fn define_unary_operator(
     );
 
     sub.insert_overload(op.into(), ts);
+
+    env.insert(op.into(), Value::PrimitiveFunction(op.into()));
+    prims.insert(op.into(), prim_op);
 }
 
-pub fn initialize_types() -> (types::TypeSubstitution, types::TypeEnv) {
+pub fn initialize() -> (types::TypeSubstitution, types::TypeEnv, Env, PrimitiveTable) {
     // Initialize the standard library
     let mut sub = types::TypeSubstitution::new();
-    let mut env = types::TypeEnv::new();
+    let mut type_env = types::TypeEnv::new();
+    let mut env = Env::new();
+    let mut prims = PrimitiveTable::new();
 
     define_binary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Add,
         "+",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_binary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Sub,
         "-",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_binary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Mul,
         "*",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_binary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Div,
         "/",
         vec!["Float32".into(), "Float64".into()],
     );
-    define_binary_operator(&mut sub, &mut env, "div", vec!["Integer".into()]);
-    define_binary_operator(&mut sub, &mut env, "mod", vec!["Integer".into()]);
     define_binary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::IDiv,
+        "div",
+        vec!["Integer".into()],
+    );
+    define_binary_operator(
+        &mut sub,
+        &mut type_env,
+        &mut env,
+        &mut prims,
+        numeric::Mod,
+        "mod",
+        vec!["Integer".into()],
+    );
+    define_binary_operator(
+        &mut sub,
+        &mut type_env,
+        &mut env,
+        &mut prims,
+        numeric::Max,
         "max",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_binary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Min,
         "min",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_unary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Exp,
         "exp",
         vec!["Float32".into(), "Float64".into()],
     );
     define_unary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Sin,
         "sin",
         vec!["Float32".into(), "Float64".into()],
     );
     define_unary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Cos,
         "cos",
         vec!["Float32".into(), "Float64".into()],
     );
     define_unary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Tan,
         "tan",
         vec!["Float32".into(), "Float64".into()],
     );
     define_unary_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        numeric::Log,
         "log",
         vec!["Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        comparisons::GreaterThan,
         ">",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        comparisons::GreaterThanOrEqual,
         ">=",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        comparisons::LessThan,
         "<",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        comparisons::LessThanOrEqual,
         "<=",
         vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        comparisons::Equal,
         "==",
         vec![
             "Boolean".into(),
@@ -185,7 +276,10 @@ pub fn initialize_types() -> (types::TypeSubstitution, types::TypeEnv) {
     );
     define_comparison_operator(
         &mut sub,
+        &mut type_env,
         &mut env,
+        &mut prims,
+        comparisons::NotEqual,
         "!=",
         vec![
             "Boolean".into(),
@@ -195,7 +289,7 @@ pub fn initialize_types() -> (types::TypeSubstitution, types::TypeEnv) {
         ],
     );
 
-    (sub, env)
+    (sub, type_env, env, prims)
 }
 
 #[cfg(test)]
@@ -212,7 +306,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = initialize_types();
+        let (mut sub, env, _, _) = initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
@@ -228,7 +322,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = initialize_types();
+        let (mut sub, env, _, _) = initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
@@ -242,7 +336,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = initialize_types();
+        let (mut sub, env, _, _) = initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
@@ -256,7 +350,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = initialize_types();
+        let (mut sub, env, _, _) = initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
@@ -270,7 +364,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = initialize_types();
+        let (mut sub, env, _, _) = initialize();
 
         // This should throw a TypeError because Boolean is an invalid overloading of +
         let crate::error::Error::TypeError(_) = sub
@@ -311,7 +405,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = initialize_types();
+        let (mut sub, env, _, _) = initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 

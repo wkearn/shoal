@@ -759,7 +759,7 @@ mod test {
         // Direct expression
         let expr = parser::parse(&"(reduce + 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
 
-        let (mut sub, env) = crate::stdlib::initialize_types();
+        let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
         assert_eq!(t, Type::Integer);
@@ -772,7 +772,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = crate::stdlib::initialize_types();
+        let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
         assert_eq!(t, Type::Integer);
@@ -785,7 +785,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = crate::stdlib::initialize_types();
+        let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
         assert_eq!(t, Type::Integer);
@@ -801,7 +801,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env) = crate::stdlib::initialize_types();
+        let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
         assert_eq!(t, Type::Array(Box::new(Type::Integer)));
@@ -812,7 +812,7 @@ mod test {
         let expr =
             parser::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
 
-        let (mut sub, env) = crate::stdlib::initialize_types();
+        let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
         assert_eq!(

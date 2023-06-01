@@ -10,18 +10,18 @@ pub fn run(src: &str) -> Result<(), Error> {
     let ex: parser::sexpr::parser::SExpr = src.parse()?;
     let ast = parser::parse(&ex)?;
 
-    let (mut sub, env) = stdlib::initialize_types();
-    let t = sub.reconstruct(&ast, &env)?;
+    let (mut sub, type_env, env, prims) = stdlib::initialize();
+    let t = sub.reconstruct(&ast, &type_env)?;
 
     println!("{ast:?}: {t}");
-    let v = interpreter::eval(&ast, &interpreter::Env::new())?;
+    let v = interpreter::eval(&ast, &env, &prims)?;
 
     println!("{v}");
     Ok(())
 }
 
 pub fn repl() -> Result<(), Error> {
-    let (mut sub, env) = stdlib::initialize_types();
+    let (mut sub, type_env, env, prims) = stdlib::initialize();
     loop {
         let mut source = String::new();
         match std::io::stdin().read_line(&mut source) {
@@ -36,10 +36,10 @@ pub fn repl() -> Result<(), Error> {
             Ok(ex) => match parser::parse(&ex) {
                 Ok(ast) => {
                     sub.clear(); // Clear the substitution
-                    match sub.reconstruct(&ast, &env) {
+                    match sub.reconstruct(&ast, &type_env) {
                         Ok(t) => {
                             println!("{ast:?}: {t}");
-                            match interpreter::eval(&ast, &interpreter::Env::new()) {
+                            match interpreter::eval(&ast, &env, &prims) {
                                 Ok(v) => println!("{v}"),
                                 Err(e) => {
                                     eprintln!("{}", e);

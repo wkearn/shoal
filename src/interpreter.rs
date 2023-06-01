@@ -1,21 +1,28 @@
+pub mod primitives;
+
 use crate::error::Error;
 use crate::parser::Expr;
+
+use primitives::PrimitiveOp;
 
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    Nil,
     Boolean(bool),
     Integer(i64),
     Float(f64),
     Array(Box<[Value]>),
     Function(Box<str>, Expr, Env),
     BinaryFunction(Box<str>, Box<str>, Expr, Env),
+    PrimitiveFunction(Box<str>),
 }
 
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
+            Value::Nil => write!(f, "nil"),
             Value::Boolean(v) => write!(f, "{v}"),
             Value::Integer(v) => write!(f, "{v}"),
             Value::Float(v) => write!(f, "{v}"),
@@ -33,6 +40,9 @@ impl std::fmt::Display for Value {
             Value::BinaryFunction(_, _, _, _) => {
                 write!(f, "binlambda")
             }
+            Value::PrimitiveFunction(v) => {
+                write!(f, "<{v}>")
+            }
         }
     }
 }
@@ -44,9 +54,30 @@ impl Env {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn insert(&mut self, k: Box<str>, v: Value) -> Option<Value> {
+        self.0.insert(k, v)
+    }
 }
 
-pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
+// The primitive table holds references to predefined primitive operators
+#[derive(Default)]
+pub struct PrimitiveTable(HashMap<Box<str>, Box<dyn PrimitiveOp>>);
+
+impl PrimitiveTable {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn insert<P>(&mut self, k: Box<str>, v: P) -> Option<Box<dyn PrimitiveOp>>
+    where
+        P: PrimitiveOp + 'static,
+    {
+        self.0.insert(k, Box::new(v))
+    }
+}
+
+pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Error> {
     match expr {
         Expr::BooleanLiteral(v) => Ok(Value::Boolean(*v)),
         Expr::IntegerLiteral(v) => Ok(Value::Integer(*v)),
@@ -64,7 +95,7 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
             env.clone(),
         )),
         Expr::Let(arg, def, body) => {
-            let defval = eval(def, env)?;
+            let defval = eval(def, env, prims)?;
             let mut local_env = Env::new(); // Create a new local environment
                                             // Add existing environment entries
             local_env
@@ -72,12 +103,12 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                 .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
             local_env.0.insert(arg.clone(), defval); // Bind the function args
 
-            eval(&body, &local_env)
+            eval(&body, &local_env, prims)
         }
         Expr::App(fun, arg) => {
-            match eval(fun, env)? {
+            match eval(fun, env, prims)? {
                 Value::Function(funarg, funbody, closure) => {
-                    let argval = eval(arg, env)?;
+                    let argval = eval(arg, env, prims)?;
                     let mut local_env = Env::new(); // Create a new local environment
                                                     // Add existing environment entries
                     local_env
@@ -85,7 +116,15 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                         .extend(closure.0.iter().map(|(k, v)| (k.clone(), v.clone())));
                     local_env.0.insert(funarg, argval); // Bind the function args
 
-                    eval(&funbody, &local_env)
+                    eval(&funbody, &local_env, prims)
+                }
+                Value::PrimitiveFunction(name) => {
+                    let fun = prims
+                        .0
+                        .get(&name)
+                        .ok_or(Error::UndefinedVariableError(name.to_string()))?;
+                    let argval = eval(arg, env, prims)?;
+                    fun.apply(&argval, &Value::Nil)
                 }
                 _ => Err(Error::RuntimeError(
                     "Application head evaluated to a value of incorrect type".into(),
@@ -93,10 +132,10 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
             }
         }
         Expr::BinApp(fun, arg0, arg1) => {
-            match eval(fun, env)? {
+            match eval(fun, env, prims)? {
                 Value::BinaryFunction(funarg0, funarg1, funbody, closure) => {
-                    let arg0val = eval(arg0, env)?;
-                    let arg1val = eval(arg1, env)?;
+                    let arg0val = eval(arg0, env, prims)?;
+                    let arg1val = eval(arg1, env, prims)?;
                     let mut local_env = Env::new(); // Create a new local environment
                                                     // Add existing environment entries
                     local_env
@@ -105,24 +144,33 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                     local_env.0.insert(funarg0, arg0val); // Bind the function args
                     local_env.0.insert(funarg1, arg1val); // Bind the function args
 
-                    eval(&funbody, &local_env)
+                    eval(&funbody, &local_env, prims)
+                }
+		Value::PrimitiveFunction(name) => {
+                    let fun = prims
+                        .0
+                        .get(&name)
+                        .ok_or(Error::UndefinedVariableError(name.to_string()))?;
+                    let arg0val = eval(arg0, env, prims)?;
+		    let arg1val = eval(arg1, env, prims)?;
+                    fun.apply(&arg0val, &arg1val)
                 }
                 _ => Err(Error::RuntimeError(
                     "Application head evaluated to a value of incorrect type".into(),
                 )),
             }
         }
-        Expr::If(pred, conseq, alt) => match eval(pred, env)? {
-            Value::Boolean(true) => eval(conseq, env),
-            Value::Boolean(false) => eval(alt, env),
+        Expr::If(pred, conseq, alt) => match eval(pred, env, prims)? {
+            Value::Boolean(true) => eval(conseq, env, prims),
+            Value::Boolean(false) => eval(alt, env, prims),
             _ => Err(Error::RuntimeError(
                 "if statement predicate evaluated to a value of incorrect type".into(),
             )),
         },
         Expr::Map(fun, arr) => {
-            match eval(fun, env)? {
+            match eval(fun, env, prims)? {
                 Value::Function(funarg, funbody, closure) => {
-                    match eval(arr, env)? {
+                    match eval(arr, env, prims)? {
                         Value::Array(xs) => {
                             let mut local_env = Env::new(); // Create a new local environment
                                                             // Add existing environment entries
@@ -133,7 +181,7 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                                 .iter()
                                 .map(|x| {
                                     local_env.0.insert(funarg.clone(), x.clone());
-                                    eval(&funbody, &local_env)
+                                    eval(&funbody, &local_env, prims)
                                 })
                                 .collect::<Result<Box<[Value]>, Error>>()?;
                             Ok(Value::Array(ys))
@@ -143,16 +191,36 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                         )),
                     }
                 }
+		Value::PrimitiveFunction(name) => {
+		    let fun = prims
+                        .0
+                        .get(&name)
+                        .ok_or(Error::UndefinedVariableError(name.to_string()))?;
+		    match eval(arr, env, prims)? {
+                        Value::Array(xs) => {                    
+                            let ys = xs
+                                .iter()
+                                .map(|x| {
+				    fun.apply(x,&Value::Nil)
+                                })
+                                .collect::<Result<Box<[Value]>, Error>>()?;
+                            Ok(Value::Array(ys))
+                        }
+                        _ => Err(Error::RuntimeError(
+                            "Map argument evaluated to a value of incorrect type".into(),
+                        )),
+                    }
+		}
                 _ => Err(Error::RuntimeError(
                     "Map head evaluated to a value of incorrect type".into(),
                 )),
             }
         }
         Expr::Reduce(fun, init, arr) => {
-            match eval(fun, env)? {
+            match eval(fun, env, prims)? {
                 Value::BinaryFunction(funarg0, funarg1, funbody, closure) => {
-                    let initval = eval(init, env)?;
-                    match eval(arr, env)? {
+                    let initval = eval(init, env, prims)?;
+                    match eval(arr, env, prims)? {
                         Value::Array(xs) => {
                             let mut local_env = Env::new(); // Create a new local environment
                                                             // Add existing environment entries
@@ -162,7 +230,7 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                             let y = xs.iter().try_fold(initval, |acc, x| {
                                 local_env.0.insert(funarg0.clone(), acc.clone());
                                 local_env.0.insert(funarg1.clone(), x.clone());
-                                eval(&funbody, &local_env)
+                                eval(&funbody, &local_env, prims)
                             })?;
                             Ok(y)
                         }
@@ -171,16 +239,36 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                         )),
                     }
                 }
+		Value::PrimitiveFunction(name) => {
+		    let fun = prims
+                        .0
+                        .get(&name)
+                        .ok_or(Error::UndefinedVariableError(name.to_string()))?;
+		    let initval = eval(init, env, prims)?;
+		    match eval(arr, env, prims)? {
+                        Value::Array(xs) => {                    
+                            let y = xs
+                                .iter()
+                                .try_fold(initval,|acc,x| {
+				    fun.apply(&acc,x)
+                                })?;
+                            Ok(y)
+                        }
+                        _ => Err(Error::RuntimeError(
+                            "Map argument evaluated to a value of incorrect type".into(),
+                        )),
+                    }
+		}
                 _ => Err(Error::RuntimeError(
                     "Reduce head evaluated to a value of incorrect type".into(),
                 )),
             }
         }
         Expr::Scan(fun, init, arr) => {
-            match eval(fun, env)? {
+            match eval(fun, env, prims)? {
                 Value::BinaryFunction(funarg0, funarg1, funbody, closure) => {
-                    let initval = eval(init, env)?;
-                    match eval(arr, env)? {
+                    let initval = eval(init, env, prims)?;
+                    match eval(arr, env, prims)? {
                         Value::Array(xs) => {
                             let mut local_env = Env::new(); // Create a new local environment
                                                             // Add existing environment entries
@@ -192,8 +280,8 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                                 .scan(initval, |acc, x| {
                                     local_env.0.insert(funarg0.clone(), acc.clone());
                                     local_env.0.insert(funarg1.clone(), x.clone());
-                                    match eval(&funbody, &local_env) {
-                                        Ok(v) => Some(v),
+                                    match eval(&funbody, &local_env, prims) {
+                                        Ok(v) => {*acc = v.clone(); Some(v)}
                                         Err(_) => None,
                                     }
                                 })
@@ -205,12 +293,35 @@ pub fn eval(expr: &Expr, env: &Env) -> Result<Value, Error> {
                         )),
                     }
                 }
+		Value::PrimitiveFunction(name) => {
+		    let fun = prims
+                        .0
+                        .get(&name)
+                        .ok_or(Error::UndefinedVariableError(name.to_string()))?;
+		    let initval = eval(init, env, prims)?;
+		    match eval(arr, env, prims)? {
+                        Value::Array(xs) => {                    
+                            let ys = xs
+                                .iter()
+                                .scan(initval,|acc,x| {
+				    match fun.apply(&acc,x) {
+					Ok(v) => {*acc = v.clone(); Some(v)}
+					Err(_) => None
+				    }
+                                }).collect();
+                            Ok(Value::Array(ys))
+                        }
+                        _ => Err(Error::RuntimeError(
+                            "Map argument evaluated to a value of incorrect type".into(),
+                        )),
+                    }
+		}
                 _ => Err(Error::RuntimeError(
                     "Scan head evaluated to a value of incorrect type".into(),
                 )),
             }
         }
-        Expr::Iota(num) => match eval(num, env)? {
+        Expr::Iota(num) => match eval(num, env, prims)? {
             Value::Integer(n) => Ok(Value::Array(
                 (0..n)
                     .map(|i| Value::Integer(i))
