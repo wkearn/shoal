@@ -6,7 +6,7 @@ pub mod types;
 use crate::error::Error;
 
 pub fn run(src: &str) -> Result<(), Error> {
-    let ex: parser::sexpr::SExpr = src.parse()?;
+    let ex: parser::sexpr::parser::SExpr = src.parse()?;
     let ast = parser::parse(&ex)?;
 
     let (mut sub, env) = stdlib::initialize_types();
@@ -28,7 +28,7 @@ pub fn repl() -> Result<(), Error> {
             }
         };
 
-        match source.parse::<parser::sexpr::SExpr>() {
+        match source.parse::<parser::sexpr::parser::SExpr>() {
             Ok(ex) => match parser::parse(&ex) {
                 Ok(ast) => {
                     sub.clear(); // Clear the substitution

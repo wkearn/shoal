@@ -1,6 +1,6 @@
 pub mod sexpr;
 
-use sexpr::SExpr;
+use sexpr::parser::SExpr;
 
 use crate::error::Error;
 

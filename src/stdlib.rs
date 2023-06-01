@@ -104,18 +104,8 @@ pub fn initialize_types() -> (types::TypeSubstitution, types::TypeEnv) {
         "/",
         vec!["Float32".into(), "Float64".into()],
     );
-    define_binary_operator(
-        &mut sub,
-        &mut env,
-        "div",
-        vec!["Integer".into()]
-    );
-    define_binary_operator(
-        &mut sub,
-        &mut env,
-        "mod",
-        vec!["Integer".into()]
-    );
+    define_binary_operator(&mut sub, &mut env, "div", vec!["Integer".into()]);
+    define_binary_operator(&mut sub, &mut env, "mod", vec!["Integer".into()]);
     define_binary_operator(
         &mut sub,
         &mut env,
@@ -162,47 +152,56 @@ pub fn initialize_types() -> (types::TypeSubstitution, types::TypeEnv) {
         &mut sub,
         &mut env,
         ">",
-        vec!["Integer".into(),"Float32".into(),"Float64".into()]
+        vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
         &mut env,
         ">=",
-        vec!["Integer".into(),"Float32".into(),"Float64".into()]
+        vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
         &mut env,
         "<",
-        vec!["Integer".into(),"Float32".into(),"Float64".into()]
+        vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
         &mut env,
         "<=",
-        vec!["Integer".into(),"Float32".into(),"Float64".into()]
+        vec!["Integer".into(), "Float32".into(), "Float64".into()],
     );
     define_comparison_operator(
         &mut sub,
         &mut env,
         "==",
-        vec!["Boolean".into(),"Integer".into(),"Float32".into(),"Float64".into()]
+        vec![
+            "Boolean".into(),
+            "Integer".into(),
+            "Float32".into(),
+            "Float64".into(),
+        ],
     );
     define_comparison_operator(
         &mut sub,
         &mut env,
         "!=",
-        vec!["Boolean".into(),"Integer".into(),"Float32".into(),"Float64".into()]
+        vec![
+            "Boolean".into(),
+            "Integer".into(),
+            "Float32".into(),
+            "Float64".into(),
+        ],
     );
-    
-    
+
     (sub, env)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::parser::{parse, sexpr::SExpr};
+    use crate::parser::{parse, sexpr::parser::SExpr};
 
     #[test]
     fn test1() {
@@ -274,14 +273,14 @@ mod test {
         let (mut sub, env) = initialize_types();
 
         // This should throw a TypeError because Boolean is an invalid overloading of +
-        let crate::error::Error::TypeError(e) = sub
+        let crate::error::Error::TypeError(_) = sub
 	    .reconstruct(&expr, &env)
 	    .unwrap_err()
 	else { panic!("Encountered unexpected error type") };
     }
 
     #[test]
-    fn comparison_test() {	
+    fn comparison_test() {
         let expr = parse(
             &"
 (let ((p1 (lambda (u v) (< u v))))

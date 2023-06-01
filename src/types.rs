@@ -618,7 +618,7 @@ mod test {
     use super::*;
 
     use crate::parser;
-    use crate::parser::sexpr::SExpr;
+    use crate::parser::sexpr::parser::SExpr;
 
     #[test]
     fn test1() {
