@@ -13,8 +13,9 @@ pub fn run(src: &str) -> Result<(), Error> {
     let (mut sub, env) = stdlib::initialize_types();
     let t = sub.reconstruct(&ast, &env)?;
 
+    println!("{ast:?}: {t}");
     let v = interpreter::eval(&ast, &interpreter::Env)?;
-
+    
     println!("{v}");
     Ok(())
 }
