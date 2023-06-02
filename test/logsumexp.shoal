@@ -1,0 +1,5 @@
+(let ((logsumexp-binop (lambda (u v)
+			 (let ((m (max u v)))
+			   (+ m (log (+ (exp (- u m)) (exp (- v m)))))))))
+  (let ((logsumexp (lambda (xs) (reduce logsumexp-binop -Inf xs))))
+    (> 1.0e-12 (- (log 10.0) (logsumexp (map (lambda (u) 0.0) (iota 10)))))))
