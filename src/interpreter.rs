@@ -146,13 +146,13 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
 
                     eval(&funbody, &local_env, prims)
                 }
-		Value::PrimitiveFunction(name) => {
+                Value::PrimitiveFunction(name) => {
                     let fun = prims
                         .0
                         .get(&name)
                         .ok_or(Error::UndefinedVariableError(name.to_string()))?;
                     let arg0val = eval(arg0, env, prims)?;
-		    let arg1val = eval(arg1, env, prims)?;
+                    let arg1val = eval(arg1, env, prims)?;
                     fun.apply(&arg0val, &arg1val)
                 }
                 _ => Err(Error::RuntimeError(
@@ -191,18 +191,16 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                         )),
                     }
                 }
-		Value::PrimitiveFunction(name) => {
-		    let fun = prims
+                Value::PrimitiveFunction(name) => {
+                    let fun = prims
                         .0
                         .get(&name)
                         .ok_or(Error::UndefinedVariableError(name.to_string()))?;
-		    match eval(arr, env, prims)? {
-                        Value::Array(xs) => {                    
+                    match eval(arr, env, prims)? {
+                        Value::Array(xs) => {
                             let ys = xs
                                 .iter()
-                                .map(|x| {
-				    fun.apply(x,&Value::Nil)
-                                })
+                                .map(|x| fun.apply(x, &Value::Nil))
                                 .collect::<Result<Box<[Value]>, Error>>()?;
                             Ok(Value::Array(ys))
                         }
@@ -210,7 +208,7 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                             "Map argument evaluated to a value of incorrect type".into(),
                         )),
                     }
-		}
+                }
                 _ => Err(Error::RuntimeError(
                     "Map head evaluated to a value of incorrect type".into(),
                 )),
@@ -239,26 +237,22 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                         )),
                     }
                 }
-		Value::PrimitiveFunction(name) => {
-		    let fun = prims
+                Value::PrimitiveFunction(name) => {
+                    let fun = prims
                         .0
                         .get(&name)
                         .ok_or(Error::UndefinedVariableError(name.to_string()))?;
-		    let initval = eval(init, env, prims)?;
-		    match eval(arr, env, prims)? {
-                        Value::Array(xs) => {                    
-                            let y = xs
-                                .iter()
-                                .try_fold(initval,|acc,x| {
-				    fun.apply(&acc,x)
-                                })?;
+                    let initval = eval(init, env, prims)?;
+                    match eval(arr, env, prims)? {
+                        Value::Array(xs) => {
+                            let y = xs.iter().try_fold(initval, |acc, x| fun.apply(&acc, x))?;
                             Ok(y)
                         }
                         _ => Err(Error::RuntimeError(
                             "Map argument evaluated to a value of incorrect type".into(),
                         )),
                     }
-		}
+                }
                 _ => Err(Error::RuntimeError(
                     "Reduce head evaluated to a value of incorrect type".into(),
                 )),
@@ -281,7 +275,10 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                                     local_env.0.insert(funarg0.clone(), acc.clone());
                                     local_env.0.insert(funarg1.clone(), x.clone());
                                     match eval(&funbody, &local_env, prims) {
-                                        Ok(v) => {*acc = v.clone(); Some(v)}
+                                        Ok(v) => {
+                                            *acc = v.clone();
+                                            Some(v)
+                                        }
                                         Err(_) => None,
                                     }
                                 })
@@ -293,29 +290,31 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                         )),
                     }
                 }
-		Value::PrimitiveFunction(name) => {
-		    let fun = prims
+                Value::PrimitiveFunction(name) => {
+                    let fun = prims
                         .0
                         .get(&name)
                         .ok_or(Error::UndefinedVariableError(name.to_string()))?;
-		    let initval = eval(init, env, prims)?;
-		    match eval(arr, env, prims)? {
-                        Value::Array(xs) => {                    
+                    let initval = eval(init, env, prims)?;
+                    match eval(arr, env, prims)? {
+                        Value::Array(xs) => {
                             let ys = xs
                                 .iter()
-                                .scan(initval,|acc,x| {
-				    match fun.apply(&acc,x) {
-					Ok(v) => {*acc = v.clone(); Some(v)}
-					Err(_) => None
-				    }
-                                }).collect();
+                                .scan(initval, |acc, x| match fun.apply(&acc, x) {
+                                    Ok(v) => {
+                                        *acc = v.clone();
+                                        Some(v)
+                                    }
+                                    Err(_) => None,
+                                })
+                                .collect();
                             Ok(Value::Array(ys))
                         }
                         _ => Err(Error::RuntimeError(
                             "Map argument evaluated to a value of incorrect type".into(),
                         )),
                     }
-		}
+                }
                 _ => Err(Error::RuntimeError(
                     "Scan head evaluated to a value of incorrect type".into(),
                 )),
