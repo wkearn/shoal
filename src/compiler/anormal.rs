@@ -38,12 +38,14 @@ struct ANormalizer {
 
 impl ANormalizer {
     pub fn new() -> Self {
-	Self { fresh_vars: RefCell::new(0) }
+        Self {
+            fresh_vars: RefCell::new(0),
+        }
     }
 
     fn gensym(&self) -> Box<str> {
-	let mut count = self.fresh_vars.borrow_mut();
-	*count += 1;
+        let mut count = self.fresh_vars.borrow_mut();
+        *count += 1;
         format!("?t{}", count).into()
     }
 
@@ -56,10 +58,9 @@ impl ANormalizer {
         expr: &Expr,
         k: &dyn Fn(AtomicExpr) -> Result<NormalExpr, Error>,
     ) -> Result<NormalExpr, Error> {
-        
         self.normalize(expr, &|n| match n {
             NormalExpr::Atomic(c @ AtomicExpr::Lambda(_, _)) => {
-		let t = self.gensym();
+                let t = self.gensym();
                 let body = k(AtomicExpr::Identifier(t.clone()))?;
                 Ok(NormalExpr::Let(
                     t.clone(),
@@ -68,7 +69,7 @@ impl ANormalizer {
                 ))
             }
             NormalExpr::Atomic(c @ AtomicExpr::BinLambda(_, _, _)) => {
-		let t = self.gensym();
+                let t = self.gensym();
                 let body = k(AtomicExpr::Identifier(t.clone()))?;
                 Ok(NormalExpr::Let(
                     t.clone(),
@@ -78,7 +79,7 @@ impl ANormalizer {
             }
             NormalExpr::Atomic(a) => k(a),
             NormalExpr::Complex(c) => {
-		let t = self.gensym();
+                let t = self.gensym();
                 let body = k(AtomicExpr::Identifier(t.clone()))?;
                 Ok(NormalExpr::Let(
                     t.clone(),
