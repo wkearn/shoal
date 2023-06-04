@@ -32,7 +32,7 @@ pub enum NormalExpr {
 }
 
 #[derive(Debug)]
-struct ANormalizer {
+pub struct ANormalizer {
     fresh_vars: RefCell<usize>,
 }
 
@@ -49,7 +49,7 @@ impl ANormalizer {
         format!("?t{}", count).into()
     }
 
-    fn normalize_term(&self, expr: &Expr) -> Result<NormalExpr, Error> {
+    pub fn normalize_term(&self, expr: &Expr) -> Result<NormalExpr, Error> {
         self.normalize(expr, &|n| Ok(n))
     }
 
