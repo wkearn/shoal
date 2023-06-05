@@ -52,6 +52,12 @@ impl std::str::FromStr for SExpr {
 #[derive(Debug)]
 pub struct SExprs(Vec<SExpr>);
 
+impl SExprs {
+    pub fn list(&self) -> &[SExpr] {
+	&self.0
+    }
+}
+
 impl std::str::FromStr for SExprs {
     type Err = Error;
 
@@ -399,7 +405,6 @@ mod test {
                             (incr 0)"
             .parse()
             .unwrap();
-
-        panic!("{prog}");
+	assert_eq!(2,prog.0.len())
     }
 }

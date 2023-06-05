@@ -1,14 +1,34 @@
 pub mod sexpr;
 
-use sexpr::parser::SExpr;
+use sexpr::parser::{SExpr,SExprs};
 
 use crate::error::Error;
+
+/// A program is a collection of statements
+#[derive(Debug)]
+pub struct Program(Vec<Statement>);
+
+impl TryFrom<SExprs> for Program {
+    type Error = Error;
+    fn try_from(vs: SExprs) -> Result<Self,Error> {
+	let statements: Result<Vec<Statement>,Error> = vs.list().iter().map(Statement::parse).collect();
+	Ok(Program(statements?))
+    }    
+}
 
 /// A statement in a shoal program is either a definition or an expression
 #[derive(Debug)]
 pub enum Statement {
     Definition(Box<str>, Expr),
     Expression(Expr),
+}
+
+impl TryFrom<SExpr> for Statement {
+    type Error = Error;
+
+    fn try_from(sexpr: SExpr) -> Result<Self,Error> {
+	Statement::parse(&sexpr)
+    }
 }
 
 impl Statement {
@@ -91,6 +111,14 @@ impl std::fmt::Display for Expr {
             Expr::Scan(fun, init, arr) => write!(f, "(scan {fun} {init} {arr})"),
             Expr::Iota(n) => write!(f, "(iota {n})"),
         }
+    }
+}
+
+impl TryFrom<SExpr> for Expr {
+    type Error = Error;
+
+    fn try_from(sexpr: SExpr) -> Result<Self,Error> {
+	Expr::parse(&sexpr)
     }
 }
 
@@ -377,7 +405,7 @@ impl Expr {
 
 #[cfg(test)]
 mod test {
-    use super::{Expr, SExpr, Statement};
+    use super::{Expr, SExpr, SExprs, Statement, Program};
 
     #[test]
     fn test1() {
@@ -440,5 +468,11 @@ mod test {
             Expr::App(_, _) => {}
             _ => panic!("Expected application found {ex:?}"),
         }
+    }
+
+    #[test]
+    fn parse_program() {
+	let prog: Program = "(define incr (lambda (u) (+ u 1)))\n(incr 0)".parse::<SExprs>().unwrap().try_into().unwrap();
+	panic!("{prog:?}")
     }
 }
