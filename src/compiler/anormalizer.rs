@@ -13,6 +13,23 @@ pub enum AtomicExpr {
     BinLambda(Box<str>, Box<str>, Box<NormalExpr>),
 }
 
+impl From<AtomicExpr> for Expr {
+    fn from(atomic: AtomicExpr) -> Self {
+	match atomic {
+	    AtomicExpr::BooleanLiteral(v) => Expr::BooleanLiteral(v),
+	    AtomicExpr::IntegerLiteral(v) => Expr::IntegerLiteral(v),
+	    AtomicExpr::FloatLiteral(v) => Expr::FloatLiteral(v),
+	    AtomicExpr::Identifier(s) => Expr::Identifier(s),
+	    AtomicExpr::Lambda(arg,body) => {
+		Expr::Lambda(arg,Box::new(Expr::from(*body)))
+	    }
+	    AtomicExpr::BinLambda(arg0,arg1,body) => {
+		Expr::BinLambda(arg0,arg1,Box::new(Expr::from(*body)))
+	    }
+	}
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ComplexExpr {
     App(Box<AtomicExpr>, Box<AtomicExpr>),
@@ -24,11 +41,62 @@ pub enum ComplexExpr {
     Iota(Box<AtomicExpr>),
 }
 
+impl From<ComplexExpr> for Expr {
+    fn from(c: ComplexExpr) -> Self {
+	match c {
+	    ComplexExpr::App(fun,arg) => {
+		Expr::App(Box::new(Expr::from(*fun)),Box::new(Expr::from(*arg)))
+	    }
+	    ComplexExpr::BinApp(fun,arg0,arg1) => {
+		Expr::BinApp(Box::new(Expr::from(*fun)),Box::new(Expr::from(*arg0)),Box::new(Expr::from(*arg1)))
+	    }
+	    ComplexExpr::If(pred, conseq, alt) => {
+		Expr::If(Box::new(Expr::from(*pred)),
+			 Box::new(Expr::from(*conseq)),
+			 Box::new(Expr::from(*alt)))
+	    }
+	    ComplexExpr::Map(fun,arr) => {
+		Expr::Map(Box::new(Expr::from(*fun)),
+			  Box::new(Expr::from(*arr))
+		)
+	    }
+	    ComplexExpr::Reduce(fun,init,arr) => {
+		Expr::Reduce(Box::new(Expr::from(*fun)),
+			     Box::new(Expr::from(*init)),
+			     Box::new(Expr::from(*arr))
+		)
+	    }
+	    ComplexExpr::Scan(fun,init,arr) => {
+		Expr::Scan(Box::new(Expr::from(*fun)),
+			     Box::new(Expr::from(*init)),
+			     Box::new(Expr::from(*arr))
+		)
+	    }
+	    ComplexExpr::Iota(n) => {
+		Expr::Iota(Box::new(Expr::from(*n)))
+	    }
+	}
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum NormalExpr {
     Let(Box<str>, Box<NormalExpr>, Box<NormalExpr>),
     Complex(ComplexExpr),
     Atomic(AtomicExpr),
+}
+
+impl From<NormalExpr> for Expr {
+    fn from(normal: NormalExpr) -> Self {
+	match normal {
+	    NormalExpr::Let(arg,def,body) => {
+		Expr::Let(arg,
+			  Box::new(Expr::from(*def)),Box::new(Expr::from(*body)))
+	    }
+	    NormalExpr::Atomic(a) => Expr::from(a),
+	    NormalExpr::Complex(c) => Expr::from(c)		
+	}
+    }
 }
 
 #[derive(Debug)]

@@ -9,10 +9,10 @@ use anormalizer::ANormalizer;
 
 use std::collections::HashMap;
 
-pub fn compile(expr: &Expr) -> Result<anormalizer::NormalExpr,Error> {
+pub fn compile(expr: &Expr) -> Result<Expr, Error> {
     let mut pass1 = Alphatizer::new();
-    let a1 = pass1.alphatize(expr,&HashMap::new())?;
+    let a1 = pass1.alphatize(expr, &HashMap::new())?;
 
     let pass2 = ANormalizer::new();
-    pass2.normalize_term(&a1)
+    pass2.normalize_term(&a1).map(|x| Expr::from(x))
 }

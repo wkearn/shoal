@@ -18,7 +18,7 @@ pub fn run(src: &str) -> Result<(), Error> {
 
     let c = compiler::compile(&ast)?;
 
-    println!("{c:?}");
+    println!("{c}");
     Ok(())
 }
 
