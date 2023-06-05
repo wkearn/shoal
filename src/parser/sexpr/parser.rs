@@ -49,6 +49,36 @@ impl std::str::FromStr for SExpr {
     }
 }
 
+#[derive(Debug)]
+pub struct SExprs(Vec<SExpr>);
+
+impl std::str::FromStr for SExprs {
+    type Err = Error;
+
+    fn from_str(source: &str) -> Result<Self, Self::Err> {
+        let tokens = lexer::lex(source);
+        let mut parser = Parser::new(tokens);
+        let mut v = Vec::new();
+        while !parser.at(&TokenKind::Eof) {
+            let ex = parser.datum()?;
+            v.push(ex);
+        }
+        Ok(SExprs(v))
+    }
+}
+
+impl std::fmt::Display for SExprs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let vs = self
+            .0
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join("\n");
+        write!(f, "{}", vs)
+    }
+}
+
 #[derive(Default)]
 struct Parser {
     pos: usize,
@@ -361,5 +391,15 @@ mod test {
             }
             _ => panic!("Expected atom"),
         }
+    }
+
+    #[test]
+    fn multiple_sexprs() {
+        let prog: SExprs = "(define incr (lambda (u) (+ u 1)))
+                            (incr 0)"
+            .parse()
+            .unwrap();
+
+        panic!("{prog}");
     }
 }
