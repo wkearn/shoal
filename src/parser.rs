@@ -478,6 +478,7 @@ mod test {
             .unwrap()
             .try_into()
             .unwrap();
-        panic!("{prog:?}")
+
+	assert_eq!(2,prog.0.len())
     }
 }
