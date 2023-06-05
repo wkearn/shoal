@@ -15,18 +15,16 @@ pub enum AtomicExpr {
 
 impl From<AtomicExpr> for Expr {
     fn from(atomic: AtomicExpr) -> Self {
-	match atomic {
-	    AtomicExpr::BooleanLiteral(v) => Expr::BooleanLiteral(v),
-	    AtomicExpr::IntegerLiteral(v) => Expr::IntegerLiteral(v),
-	    AtomicExpr::FloatLiteral(v) => Expr::FloatLiteral(v),
-	    AtomicExpr::Identifier(s) => Expr::Identifier(s),
-	    AtomicExpr::Lambda(arg,body) => {
-		Expr::Lambda(arg,Box::new(Expr::from(*body)))
-	    }
-	    AtomicExpr::BinLambda(arg0,arg1,body) => {
-		Expr::BinLambda(arg0,arg1,Box::new(Expr::from(*body)))
-	    }
-	}
+        match atomic {
+            AtomicExpr::BooleanLiteral(v) => Expr::BooleanLiteral(v),
+            AtomicExpr::IntegerLiteral(v) => Expr::IntegerLiteral(v),
+            AtomicExpr::FloatLiteral(v) => Expr::FloatLiteral(v),
+            AtomicExpr::Identifier(s) => Expr::Identifier(s),
+            AtomicExpr::Lambda(arg, body) => Expr::Lambda(arg, Box::new(Expr::from(*body))),
+            AtomicExpr::BinLambda(arg0, arg1, body) => {
+                Expr::BinLambda(arg0, arg1, Box::new(Expr::from(*body)))
+            }
+        }
     }
 }
 
@@ -43,39 +41,35 @@ pub enum ComplexExpr {
 
 impl From<ComplexExpr> for Expr {
     fn from(c: ComplexExpr) -> Self {
-	match c {
-	    ComplexExpr::App(fun,arg) => {
-		Expr::App(Box::new(Expr::from(*fun)),Box::new(Expr::from(*arg)))
-	    }
-	    ComplexExpr::BinApp(fun,arg0,arg1) => {
-		Expr::BinApp(Box::new(Expr::from(*fun)),Box::new(Expr::from(*arg0)),Box::new(Expr::from(*arg1)))
-	    }
-	    ComplexExpr::If(pred, conseq, alt) => {
-		Expr::If(Box::new(Expr::from(*pred)),
-			 Box::new(Expr::from(*conseq)),
-			 Box::new(Expr::from(*alt)))
-	    }
-	    ComplexExpr::Map(fun,arr) => {
-		Expr::Map(Box::new(Expr::from(*fun)),
-			  Box::new(Expr::from(*arr))
-		)
-	    }
-	    ComplexExpr::Reduce(fun,init,arr) => {
-		Expr::Reduce(Box::new(Expr::from(*fun)),
-			     Box::new(Expr::from(*init)),
-			     Box::new(Expr::from(*arr))
-		)
-	    }
-	    ComplexExpr::Scan(fun,init,arr) => {
-		Expr::Scan(Box::new(Expr::from(*fun)),
-			     Box::new(Expr::from(*init)),
-			     Box::new(Expr::from(*arr))
-		)
-	    }
-	    ComplexExpr::Iota(n) => {
-		Expr::Iota(Box::new(Expr::from(*n)))
-	    }
-	}
+        match c {
+            ComplexExpr::App(fun, arg) => {
+                Expr::App(Box::new(Expr::from(*fun)), Box::new(Expr::from(*arg)))
+            }
+            ComplexExpr::BinApp(fun, arg0, arg1) => Expr::BinApp(
+                Box::new(Expr::from(*fun)),
+                Box::new(Expr::from(*arg0)),
+                Box::new(Expr::from(*arg1)),
+            ),
+            ComplexExpr::If(pred, conseq, alt) => Expr::If(
+                Box::new(Expr::from(*pred)),
+                Box::new(Expr::from(*conseq)),
+                Box::new(Expr::from(*alt)),
+            ),
+            ComplexExpr::Map(fun, arr) => {
+                Expr::Map(Box::new(Expr::from(*fun)), Box::new(Expr::from(*arr)))
+            }
+            ComplexExpr::Reduce(fun, init, arr) => Expr::Reduce(
+                Box::new(Expr::from(*fun)),
+                Box::new(Expr::from(*init)),
+                Box::new(Expr::from(*arr)),
+            ),
+            ComplexExpr::Scan(fun, init, arr) => Expr::Scan(
+                Box::new(Expr::from(*fun)),
+                Box::new(Expr::from(*init)),
+                Box::new(Expr::from(*arr)),
+            ),
+            ComplexExpr::Iota(n) => Expr::Iota(Box::new(Expr::from(*n))),
+        }
     }
 }
 
@@ -88,14 +82,13 @@ pub enum NormalExpr {
 
 impl From<NormalExpr> for Expr {
     fn from(normal: NormalExpr) -> Self {
-	match normal {
-	    NormalExpr::Let(arg,def,body) => {
-		Expr::Let(arg,
-			  Box::new(Expr::from(*def)),Box::new(Expr::from(*body)))
-	    }
-	    NormalExpr::Atomic(a) => Expr::from(a),
-	    NormalExpr::Complex(c) => Expr::from(c)		
-	}
+        match normal {
+            NormalExpr::Let(arg, def, body) => {
+                Expr::Let(arg, Box::new(Expr::from(*def)), Box::new(Expr::from(*body)))
+            }
+            NormalExpr::Atomic(a) => Expr::from(a),
+            NormalExpr::Complex(c) => Expr::from(c),
+        }
     }
 }
 
@@ -262,41 +255,41 @@ impl ANormalizer {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::parser::parse;
+    use crate::parser::Expr;
     use crate::parser::sexpr::parser::SExpr;
 
     #[test]
     fn test1() {
         let src: SExpr = "(lambda (x) 1)".parse().unwrap();
-        let ex: Expr = parse(&src).unwrap();
+        let ex: Expr = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 
     #[test]
     fn test2() {
         let src: SExpr = "((lambda (x) x) 0)".parse().unwrap();
-        let ex: Expr = parse(&src).unwrap();
+        let ex: Expr = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 
     #[test]
     fn test3() {
         let src: SExpr = "(if (> 1 0) false true)".parse().unwrap();
-        let ex: Expr = parse(&src).unwrap();
+        let ex: Expr = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 
     #[test]
     fn test4() {
         let src: SExpr = "(let ((f (lambda (x) x))) (f (foo 10)))".parse().unwrap();
-        let ex: Expr = parse(&src).unwrap();
+        let ex: Expr = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 
     #[test]
     fn test5() {
         let src: SExpr = "(let ((incr (lambda (u) (+ u 1)))) (let ((factorial (lambda (n) (reduce * 1 (map incr (iota n)))))) (factorial 6)))".parse().unwrap();
-        let ex: Expr = parse(&src).unwrap();
+        let ex: Expr = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 }

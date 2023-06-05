@@ -617,12 +617,12 @@ impl TypeSubstitution {
 mod test {
     use super::*;
 
-    use crate::parser;
+    use crate::parser::Expr;
     use crate::parser::sexpr::parser::SExpr;
 
     #[test]
     fn test1() {
-        let expr = parser::parse(
+        let expr = Expr::parse(
             &"(let ((f (lambda (x) x))) (f 1.0))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -637,7 +637,7 @@ mod test {
 
         //
         let expr =
-            parser::parse(&"(let ((f (lambda (x) x))) (f 1))".parse::<SExpr>().unwrap()).unwrap();
+            Expr::parse(&"(let ((f (lambda (x) x))) (f 1))".parse::<SExpr>().unwrap()).unwrap();
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
@@ -646,7 +646,7 @@ mod test {
         assert_eq!(t, Type::Integer);
 
         //
-        let expr = parser::parse(
+        let expr = Expr::parse(
             &"(let ((f (lambda (x) x))) (f true))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -662,7 +662,7 @@ mod test {
 
     #[test]
     fn test2() {
-        let expr = parser::parse(&"(if true 1.0 2.0)".parse::<SExpr>().unwrap()).unwrap();
+        let expr = Expr::parse(&"(if true 1.0 2.0)".parse::<SExpr>().unwrap()).unwrap();
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
@@ -671,7 +671,7 @@ mod test {
         assert_eq!(t, Type::Float64);
 
         //
-        let expr = parser::parse(&"(if true 1 2)".parse::<SExpr>().unwrap()).unwrap();
+        let expr = Expr::parse(&"(if true 1 2)".parse::<SExpr>().unwrap()).unwrap();
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
@@ -680,7 +680,7 @@ mod test {
         assert_eq!(t, Type::Integer);
 
         //
-        let expr = parser::parse(&"(if true false true)".parse::<SExpr>().unwrap()).unwrap();
+        let expr = Expr::parse(&"(if true false true)".parse::<SExpr>().unwrap()).unwrap();
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
@@ -689,7 +689,7 @@ mod test {
         assert_eq!(t, Type::Boolean);
 
         //
-        let expr = parser::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
+        let expr = Expr::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
@@ -699,7 +699,7 @@ mod test {
         }
 
         //
-        let expr = parser::parse(&"(if 2.0 1 2)".parse::<SExpr>().unwrap()).unwrap();
+        let expr = Expr::parse(&"(if 2.0 1 2)".parse::<SExpr>().unwrap()).unwrap();
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
@@ -711,7 +711,7 @@ mod test {
 
     #[test]
     fn test3() {
-        let expr = parser::parse(
+        let expr = Expr::parse(
             &"(reduce (lambda (u v) v) 0 (iota 10))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -724,7 +724,7 @@ mod test {
 
         assert_eq!(t, Type::Integer);
 
-        let expr = parser::parse(
+        let expr = Expr::parse(
             &"(scan (lambda (u v) v) 0 (iota 10))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -740,7 +740,7 @@ mod test {
 
     #[test]
     fn test4() {
-        let expr = parser::parse(
+        let expr = Expr::parse(
             &"(map (lambda (u) true) (iota 10))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -757,7 +757,7 @@ mod test {
     #[test]
     fn test5() {
         // Direct expression
-        let expr = parser::parse(&"(reduce + 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
+        let expr = Expr::parse(&"(reduce + 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
@@ -765,7 +765,7 @@ mod test {
         assert_eq!(t, Type::Integer);
 
         // Let expression
-        let expr = parser::parse(
+        let expr = Expr::parse(
             &"(let ((xs (iota 10))) (reduce + 0 xs))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -778,7 +778,7 @@ mod test {
         assert_eq!(t, Type::Integer);
 
         // Lambda application
-        let expr = parser::parse(
+        let expr = Expr::parse(
             &"((lambda (xs) (reduce + 0 xs)) (iota 10))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -794,7 +794,7 @@ mod test {
     #[test]
     fn test6() {
         // Lambda application
-        let expr = parser::parse(
+        let expr = Expr::parse(
             &"((lambda (xs) (map (lambda (u) (+ u 1)) xs)) (iota 10))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -810,7 +810,7 @@ mod test {
     #[test]
     fn test7() {
         let expr =
-            parser::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
+            Expr::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 

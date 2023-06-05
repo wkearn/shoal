@@ -110,27 +110,27 @@ mod test {
     use super::*;
 
     use super::*;
-    use crate::parser::parse;
+    use crate::parser::Expr;
     use crate::parser::sexpr::parser::SExpr;
 
     #[test]
     fn test1() {
         let src: SExpr = "(lambda (x) 1)".parse().unwrap();
-        let ex: Expr = parse(&src).unwrap();
+        let ex: Expr = Expr::parse(&src).unwrap();
         let _tex: Expr = Alphatizer::new().alphatize(&ex, &HashMap::new()).unwrap();
     }
 
     #[test]
     fn test2() {
         let src: SExpr = "((lambda (x) x) 0)".parse().unwrap();
-        let ex: Expr = parse(&src).unwrap();
+        let ex: Expr = Expr::parse(&src).unwrap();
         let _tex: Expr = Alphatizer::new().alphatize(&ex, &HashMap::new()).unwrap();
     }
 
     #[test]
     fn test3() {
         let src: SExpr = "(let ((f (lambda (x) x))) (f (foo 10)))".parse().unwrap();
-        let ex: Expr = parse(&src).unwrap();
+        let ex: Expr = Expr::parse(&src).unwrap();
 
         let _tex: Expr = Alphatizer::new().alphatize(&ex, &HashMap::new()).unwrap();
     }

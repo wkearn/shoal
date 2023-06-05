@@ -6,10 +6,11 @@ pub mod stdlib;
 pub mod types;
 
 use crate::error::Error;
+use crate::parser::Expr;
 
 pub fn run(src: &str) -> Result<(), Error> {
     let ex: parser::sexpr::parser::SExpr = src.parse()?;
-    let ast = parser::parse(&ex)?;
+    let ast = Expr::parse(&ex)?;
 
     let (mut sub, type_env, env, prims) = stdlib::initialize();
     let t = sub.reconstruct(&ast, &type_env)?;
@@ -35,7 +36,7 @@ pub fn repl() -> Result<(), Error> {
         };
 
         match source.parse::<parser::sexpr::parser::SExpr>() {
-            Ok(ex) => match parser::parse(&ex) {
+            Ok(ex) => match Expr::parse(&ex) {
                 Ok(ast) => {
                     sub.clear(); // Clear the substitution
                     match sub.reconstruct(&ast, &type_env) {

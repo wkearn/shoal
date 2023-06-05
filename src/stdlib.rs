@@ -295,11 +295,11 @@ pub fn initialize() -> (types::TypeSubstitution, types::TypeEnv, Env, PrimitiveT
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::parser::{parse, sexpr::parser::SExpr};
+    use crate::parser::{Expr, sexpr::parser::SExpr};
 
     #[test]
     fn test1() {
-        let expr = parse(
+        let expr = Expr::parse(
             &"(let ((f (lambda (x) x))) (f 1.0))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -315,7 +315,7 @@ mod test {
 
     #[test]
     fn test2() {
-        let expr = parse(
+        let expr = Expr::parse(
             &"(let ((f (lambda (x) (+ x 2.0)))) (f 1.0))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -329,7 +329,7 @@ mod test {
         assert_eq!(t, Type::Float64);
 
         //
-        let expr = parse(
+        let expr = Expr::parse(
             &"(let ((f (lambda (x) (+ x 2)))) (f 1))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -343,7 +343,7 @@ mod test {
         assert_eq!(t, Type::Integer);
 
         //
-        let expr = parse(
+        let expr = Expr::parse(
             &"(let ((f (lambda (x y) (+ x y)))) (let ((a (f 1 2))) (let ((b (f 1.0 2.0))) b)))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -357,7 +357,7 @@ mod test {
         assert_eq!(t, Type::Float64);
 
         //
-        let expr = parse(
+        let expr = Expr::parse(
             &"(let ((f (lambda (x y) (+ x y)))) (let ((a (f 1 2))) (let ((b (f true false))) b)))"
                 .parse::<SExpr>()
                 .unwrap(),
@@ -375,7 +375,7 @@ mod test {
 
     #[test]
     fn comparison_test() {
-        let expr = parse(
+        let expr = Expr::parse(
             &"
 (let ((p1 (lambda (u v) (< u v))))
   (let ((p2 (lambda (u v) (<= u v))))
