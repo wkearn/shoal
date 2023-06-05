@@ -6,13 +6,13 @@ pub mod stdlib;
 pub mod types;
 
 use crate::error::Error;
-use crate::parser::{Expr,Statement};
+use crate::parser::{Expr, Statement};
 
 pub fn run(src: &str) -> Result<(), Error> {
     let ex: parser::sexpr::parser::SExpr = src.parse()?;
     let ast = Expr::parse(&ex)?;
 
-    let (mut sub, type_env, env, prims) = stdlib::initialize();
+    let (mut sub, type_env, _env, _prims) = stdlib::initialize();
     let t = sub.reconstruct(&ast, &type_env)?;
 
     println!("{ast:?}: {t}");
@@ -56,29 +56,29 @@ pub fn repl() -> Result<(), Error> {
                         }
                     }
                 }
-		Ok(Statement::Definition(var,def)) => {
-		    sub.clear();
-		    match sub.reconstruct(&def,&type_env) {
-			Ok(t) => {
-			    println!("{def}: {t}");
-			    match interpreter::eval(&def, &env, &prims) {
+                Ok(Statement::Definition(var, def)) => {
+                    sub.clear();
+                    match sub.reconstruct(&def, &type_env) {
+                        Ok(t) => {
+                            println!("{def}: {t}");
+                            match interpreter::eval(&def, &env, &prims) {
                                 Ok(v) => {
-				    println!("{var} = {v}");
-				    env.insert(var.clone(),v);
-				    type_env.insert(var,types::TypeScheme::PlainType(t));
-				},
+                                    println!("{var} = {v}");
+                                    env.insert(var.clone(), v);
+                                    type_env.insert(var, types::TypeScheme::PlainType(t));
+                                }
                                 Err(e) => {
                                     eprintln!("{}", e);
                                     continue;
                                 }
                             }
-			}
-			Err(e) => {
-			    eprintln!("{}",e);
-			    continue;
-			}
-		    }
-		}
+                        }
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            continue;
+                        }
+                    }
+                }
                 Err(e) => {
                     eprintln!("{}", e);
                     continue;
