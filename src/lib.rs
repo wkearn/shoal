@@ -6,20 +6,14 @@ pub mod stdlib;
 pub mod types;
 
 use crate::error::Error;
-use crate::parser::{Expr, Statement};
+use crate::parser::{sexpr::parser::SExprs, Program, Statement};
 
 pub fn run(src: &str) -> Result<(), Error> {
-    let ex: parser::sexpr::parser::SExpr = src.parse()?;
-    let ast = Expr::parse(&ex)?;
+    let prog: Program = src.parse::<SExprs>()?.try_into()?;
 
-    let (mut sub, type_env, _env, _prims) = stdlib::initialize();
-    let t = sub.reconstruct(&ast, &type_env)?;
+    let c = compiler::compile(&prog)?;
 
-    println!("{ast:?}: {t}");
-
-    let c = compiler::compile(&ast)?;
-
-    println!("{c}");
+    println!("{c:?}");
     Ok(())
 }
 
