@@ -4,6 +4,58 @@ use sexpr::parser::SExpr;
 
 use crate::error::Error;
 
+/// A statement in a shoal program is either a definition or an expression
+#[derive(Debug)]
+pub enum Statement {
+    Definition(Box<str>,Expr),
+    Expression(Expr)
+}
+
+impl Statement {
+    pub fn parse(sexpr: &SExpr) -> Result<Self,Error> {
+	match sexpr {
+	    SExpr::List(vs, start_pos, _) => {
+		let head: &SExpr = vs.get(0).ok_or(Error::SyntaxError(format!(
+                    "[{start_pos}]: Empty list form"
+		)))?;
+
+		match head {
+		    SExpr::Atom(s, head_start, _) => {
+			match &**s {
+			    "define" => {
+				let var = vs.get(1).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: define statement missing variable identifier"
+                                )))?;
+
+				match var {
+				    SExpr::Atom(v,_, _) => {
+					let def = vs.get(2).ok_or(Error::SyntaxError(format!("[{head_start}]: define statement missing body")))?;
+					let ex: Expr = parse(def)?;
+					Ok(Statement::Definition(v.clone(), ex))
+				    }
+				    _ => Err(Error::SyntaxError(format!("[{head_start}]: Expected identifier in first argument to define")))
+				}
+			    }
+			    _ => {
+				let ex: Expr = parse(sexpr)?;
+				Ok(Statement::Expression(ex))
+			    }
+			}
+		    }
+		    _ => {
+			let ex: Expr = parse(sexpr)?;
+			Ok(Statement::Expression(ex))
+		    }
+		}
+	    }
+	    _ => {
+		let ex: Expr = parse(sexpr)?;
+		Ok(Statement::Expression(ex))
+	    }
+	}
+    }
+}
+
 /// shoal's abstract syntax tree
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -323,7 +375,7 @@ pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
 
 #[cfg(test)]
 mod test {
-    use super::{parse, SExpr};
+    use super::{parse, SExpr, Statement, Expr};
 
     #[test]
     fn test1() {
@@ -362,5 +414,29 @@ mod test {
             .parse()
             .unwrap();
         parse(&src).unwrap();
+    }
+
+    #[test]
+    fn test7() {
+	let src: SExpr = "(define incr (lambda (u) (+ u 1)))".parse().unwrap();
+	let Statement::Definition(var,def) = Statement::parse(&src).unwrap() else { panic!("Expected definition, found expression")};
+
+	assert_eq!(var,"incr".into());
+
+	match def {
+	    Expr::Lambda(_,_) => {}
+	    _ => panic!("Expected lambda found {def:?}")
+	}
+    }
+
+    #[test]
+    fn test8() {
+	let src: SExpr = "((lambda (u) (+ u 1)) 0)".parse().unwrap();
+	let Statement::Expression(ex) = Statement::parse(&src).unwrap() else { panic!("Expected expression, found definition")};
+
+	match ex {
+	    Expr::App(_,_) => {}
+	    _ => panic!("Expected application found {ex:?}")
+	}
     }
 }
