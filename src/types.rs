@@ -5,7 +5,7 @@ use crate::parser::Expr;
 
 use std::collections::{HashMap, HashSet};
 
-// TODO: Product types, additional numeric types
+// TODO: additional numeric types
 /// The set of valid types for a shoal expression
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
