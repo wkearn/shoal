@@ -106,9 +106,8 @@ impl Alphatizer {
     }
 }
 
+#[cfg(test)]
 mod test {
-    use super::*;
-
     use super::*;
     use crate::parser::sexpr::parser::SExpr;
     use crate::parser::Expr;
