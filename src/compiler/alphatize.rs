@@ -102,6 +102,10 @@ impl Alphatizer {
                 Box::new(self.alphatize(arr, env)?),
             )),
             Expr::Iota(n) => Ok(Expr::Iota(Box::new(self.alphatize(n, env)?))),
+            Expr::Pair(e1, e2) => Ok(Expr::Pair(
+                Box::new(self.alphatize(e1, env)?),
+                Box::new(self.alphatize(e2, env)?),
+            )),
         }
     }
 }

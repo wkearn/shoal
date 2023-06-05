@@ -17,6 +17,7 @@ pub enum Type {
     Function(Box<Type>, Box<Type>),
     BinaryFunction(Box<Type>, Box<Type>, Box<Type>),
     Array(Box<Type>),
+    Pair(Box<Type>, Box<Type>),
 }
 
 impl std::fmt::Display for Type {
@@ -34,6 +35,7 @@ impl std::fmt::Display for Type {
             Self::Function(arg, body) => write!(f, "{arg} -> {body}"),
             Self::BinaryFunction(arg0, arg1, body) => write!(f, "{arg0} x {arg1} -> {body}"),
             Self::Array(body) => write!(f, "[{body}]"),
+            Self::Pair(t1, t2) => write!(f, "({t1},{t2})"),
         }
     }
 }
@@ -48,6 +50,7 @@ impl Type {
                     self.occurs_check(arg0) || self.occurs_check(arg1) || self.occurs_check(body)
                 }
                 Type::Array(body) => self.occurs_check(body),
+                Type::Pair(t1, t2) => self.occurs_check(t1) || self.occurs_check(t2),
                 Type::TypeVar(t, _) => s == t,
                 _ => false,
             }
@@ -68,6 +71,12 @@ impl Type {
                 fvs
             }
             Type::Array(body) => body.free_vars(),
+            Type::Pair(t1, t2) => {
+                let mut u = t1.free_vars();
+                let v = t2.free_vars();
+                u.extend(v);
+                u
+            }
             Type::Function(arg, body) => {
                 let mut u = arg.free_vars();
                 let v = body.free_vars();
@@ -228,6 +237,11 @@ impl TypeSubstitution {
                 Type::BinaryFunction(Box::new(at0), Box::new(at1), Box::new(ft))
             }
             Type::Array(body) => Type::Array(Box::new(self.get(body))),
+            Type::Pair(t1, t2) => {
+                let at1 = self.get(t1);
+                let at2 = self.get(t2);
+                Type::Pair(Box::new(at1), Box::new(at2))
+            }
             Type::TypeVar(s, _) => match self.substitution.get(s) {
                 Some(u) => self.get(u),
                 //Some(bound) => bound.clone(),
@@ -241,6 +255,7 @@ impl TypeSubstitution {
             Type::TypeVar(_, _) => false,
             Type::Function(_, _) => xs.is_empty(),
             Type::BinaryFunction(_, _, _) => xs.is_empty(),
+            Type::Pair(_, _) => xs.is_empty(),
             Type::Array(_) => xs.is_empty(),
             Type::Boolean => {
                 for x in xs.iter() {
@@ -343,6 +358,11 @@ impl TypeSubstitution {
             Type::Array(body0) => match right {
                 Type::TypeVar(_, _) => self.unify(right, left),
                 Type::Array(body1) => self.unify(body0, body1),
+                _ => Err(Error::TypeError(format!("{left} != {right}"))),
+            },
+            Type::Pair(t1, t2) => match right {
+                Type::TypeVar(_, _) => self.unify(right, left),
+                Type::Pair(u1, u2) => self.unify(t1, u1).and_then(|_| self.unify(t2, u2)),
                 _ => Err(Error::TypeError(format!("{left} != {right}"))),
             },
             Type::Function(arg0, body0) => match right {
@@ -609,6 +629,14 @@ impl TypeSubstitution {
 
                 Ok(Type::Array(Box::new(Type::Integer)))
             }
+	    Expr::Pair(e1,e2) => {
+		let t1 = self.reconstruct(e1,env)?;
+		let t2 = self.reconstruct(e2,env)?;
+
+		let tt = Type::Pair(Box::new(t1.clone()),Box::new(t2.clone()));
+
+		Ok(tt)
+	    }
         }
     }
 }

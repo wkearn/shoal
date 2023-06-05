@@ -92,6 +92,7 @@ pub enum Expr {
     Reduce(Box<Expr>, Box<Expr>, Box<Expr>),
     Scan(Box<Expr>, Box<Expr>, Box<Expr>),
     Iota(Box<Expr>),
+    Pair(Box<Expr>, Box<Expr>),
 }
 
 impl std::fmt::Display for Expr {
@@ -111,6 +112,7 @@ impl std::fmt::Display for Expr {
             Expr::Reduce(fun, init, arr) => write!(f, "(reduce {fun} {init} {arr})"),
             Expr::Scan(fun, init, arr) => write!(f, "(scan {fun} {init} {arr})"),
             Expr::Iota(n) => write!(f, "(iota {n})"),
+            Expr::Pair(e1, e2) => write!(f, "{{{e1},{e2}}}"),
         }
     }
 }
@@ -342,6 +344,23 @@ impl Expr {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: iota statement expects one expression: (iota n)")))
                                 }
                             }
+                            "pair" => {
+                                if vs.len() == 3 {
+                                    let arg1 = vs.get(1).ok_or(Error::SyntaxError(format!(
+					"[{start_pos}]: pair statement expects two arguments: (pair e1 e2)"
+                                    )))?;
+                                    let arg1 = Expr::parse(arg1)?;
+
+                                    let arg2 = vs.get(2).ok_or(Error::SyntaxError(format!(
+					"[{start_pos}]: pair statement expects two arguments: (pair e1 e2)"
+                                    )))?;
+                                    let arg2 = Expr::parse(arg2)?;
+
+                                    Ok(Expr::Pair(Box::new(arg1), Box::new(arg2)))
+                                } else {
+                                    Err(Error::SyntaxError(format!("[{start_pos}]: pair statement expects two expressions: (pairs e1 e2)")))
+                                }
+                            }
                             _ => {
                                 // This is function application
                                 if vs.len() <= 3 {
@@ -479,6 +498,6 @@ mod test {
             .try_into()
             .unwrap();
 
-	assert_eq!(2,prog.0.len())
+        assert_eq!(2, prog.0.len())
     }
 }

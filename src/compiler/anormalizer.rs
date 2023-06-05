@@ -37,6 +37,7 @@ pub enum ComplexExpr {
     Reduce(Box<AtomicExpr>, Box<AtomicExpr>, Box<AtomicExpr>),
     Scan(Box<AtomicExpr>, Box<AtomicExpr>, Box<AtomicExpr>),
     Iota(Box<AtomicExpr>),
+    Pair(Box<AtomicExpr>, Box<AtomicExpr>),
 }
 
 impl From<ComplexExpr> for Expr {
@@ -69,6 +70,9 @@ impl From<ComplexExpr> for Expr {
                 Box::new(Expr::from(*arr)),
             ),
             ComplexExpr::Iota(n) => Expr::Iota(Box::new(Expr::from(*n))),
+            ComplexExpr::Pair(e1, e2) => {
+                Expr::Pair(Box::new(Expr::from(*e1)), Box::new(Expr::from(*e2)))
+            }
         }
     }
 }
@@ -247,6 +251,14 @@ impl ANormalizer {
             }),
             Expr::Iota(n) => self.normalize_name(n, &|t0| {
                 k(NormalExpr::Complex(ComplexExpr::Iota(Box::new(t0.clone()))))
+            }),
+            Expr::Pair(e1, e2) => self.normalize_name(e1, &|t0| {
+                self.normalize_name(e2, &|t1| {
+                    k(NormalExpr::Complex(ComplexExpr::Pair(
+                        Box::new(t0.clone()),
+                        Box::new(t1.clone()),
+                    )))
+                })
             }),
         }
     }

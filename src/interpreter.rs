@@ -17,6 +17,7 @@ pub enum Value {
     Function(Box<str>, Expr, Env),
     BinaryFunction(Box<str>, Box<str>, Expr, Env),
     PrimitiveFunction(Box<str>),
+    Pair(Box<Value>,Box<Value>)
 }
 
 impl std::fmt::Display for Value {
@@ -42,6 +43,9 @@ impl std::fmt::Display for Value {
             }
             Value::PrimitiveFunction(v) => {
                 write!(f, "<{v}>")
+            }
+	    Value::Pair(v1,v2) => {
+                write!(f, "{{{v1},{v2}}}")
             }
         }
     }
@@ -331,5 +335,11 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                 "iota argument evaluated to a value of incorrect type".into(),
             )),
         },
+	Expr::Pair(e1,e2) => {
+	    let v1 = eval(e1,env,prims)?;
+	    let v2 = eval(e2,env,prims)?;
+
+	    Ok(Value::Pair(Box::new(v1),Box::new(v2)))
+	}
     }
 }
