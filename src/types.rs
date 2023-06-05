@@ -617,8 +617,8 @@ impl TypeSubstitution {
 mod test {
     use super::*;
 
-    use crate::parser::Expr;
     use crate::parser::sexpr::parser::SExpr;
+    use crate::parser::Expr;
 
     #[test]
     fn test1() {
@@ -809,8 +809,7 @@ mod test {
 
     #[test]
     fn test7() {
-        let expr =
-            Expr::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
+        let expr = Expr::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 

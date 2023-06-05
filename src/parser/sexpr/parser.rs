@@ -54,7 +54,7 @@ pub struct SExprs(Vec<SExpr>);
 
 impl SExprs {
     pub fn list(&self) -> &[SExpr] {
-	&self.0
+        &self.0
     }
 }
 
@@ -405,6 +405,6 @@ mod test {
                             (incr 0)"
             .parse()
             .unwrap();
-	assert_eq!(2,prog.0.len())
+        assert_eq!(2, prog.0.len())
     }
 }

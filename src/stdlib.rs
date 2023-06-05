@@ -295,7 +295,7 @@ pub fn initialize() -> (types::TypeSubstitution, types::TypeEnv, Env, PrimitiveT
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::parser::{Expr, sexpr::parser::SExpr};
+    use crate::parser::{sexpr::parser::SExpr, Expr};
 
     #[test]
     fn test1() {

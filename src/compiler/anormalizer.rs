@@ -255,8 +255,8 @@ impl ANormalizer {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::parser::Expr;
     use crate::parser::sexpr::parser::SExpr;
+    use crate::parser::Expr;
 
     #[test]
     fn test1() {
