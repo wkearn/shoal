@@ -15,9 +15,10 @@ pub fn run(src: &str) -> Result<(), Error> {
     let t = sub.reconstruct(&ast, &type_env)?;
 
     println!("{ast:?}: {t}");
-    let v = interpreter::eval(&ast, &env, &prims)?;
 
-    println!("{v}");
+    let c = compiler::compile(&ast)?;
+
+    println!("{c:?}");
     Ok(())
 }
 
