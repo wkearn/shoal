@@ -93,6 +93,8 @@ pub enum Expr {
     Scan(Box<Expr>, Box<Expr>, Box<Expr>),
     Iota(Box<Expr>),
     Pair(Box<Expr>, Box<Expr>),
+    Fst(Box<Expr>),
+    Snd(Box<Expr>),
 }
 
 impl std::fmt::Display for Expr {
@@ -112,7 +114,9 @@ impl std::fmt::Display for Expr {
             Expr::Reduce(fun, init, arr) => write!(f, "(reduce {fun} {init} {arr})"),
             Expr::Scan(fun, init, arr) => write!(f, "(scan {fun} {init} {arr})"),
             Expr::Iota(n) => write!(f, "(iota {n})"),
-            Expr::Pair(e1, e2) => write!(f, "{{{e1},{e2}}}"),
+            Expr::Pair(e1, e2) => write!(f, "(pair {e1} {e2})"),
+	    Expr::Fst(e) => write!(f,"(fst {e})"),
+	    Expr::Snd(e) => write!(f,"(snd {e})"),
         }
     }
 }
@@ -359,6 +363,30 @@ impl Expr {
                                     Ok(Expr::Pair(Box::new(arg1), Box::new(arg2)))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: pair statement expects two expressions: (pairs e1 e2)")))
+                                }
+                            }
+			    "fst" => {
+                                if vs.len() == 2 {
+                                    let arg = vs.get(1).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: fst statement expects an argument: (fst p)"
+                                )))?;
+                                    let arg = Expr::parse(arg)?;
+
+                                    Ok(Expr::Fst(Box::new(arg)))
+                                } else {
+                                    Err(Error::SyntaxError(format!("[{start_pos}]: fst statement expects one expression: (fst p)")))
+                                }
+                            }
+			    "snd" => {
+                                if vs.len() == 2 {
+                                    let arg = vs.get(1).ok_or(Error::SyntaxError(format!(
+                                    "[{start_pos}]: snd statement expects an argument: (snd p)"
+                                )))?;
+                                    let arg = Expr::parse(arg)?;
+
+                                    Ok(Expr::Snd(Box::new(arg)))
+                                } else {
+                                    Err(Error::SyntaxError(format!("[{start_pos}]: fst statement expects one expression: (snd p)")))
                                 }
                             }
                             _ => {

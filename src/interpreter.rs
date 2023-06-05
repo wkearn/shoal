@@ -341,5 +341,17 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
 
 	    Ok(Value::Pair(Box::new(v1),Box::new(v2)))
 	}
+	Expr::Fst(p) => {
+	    match eval(p,env,prims)? {
+		Value::Pair(v1,_) => Ok(*v1),
+		_ => Err(Error::RuntimeError("fst argument evaluated to a value of incorrect type".into()))
+	    }
+	}
+	Expr::Snd(p) => {
+	    match eval(p,env,prims)? {
+		Value::Pair(_,v2) => Ok(*v2),
+		_ => Err(Error::RuntimeError("snd argument evaluated to a value of incorrect type".into()))
+	    }
+	}
     }
 }

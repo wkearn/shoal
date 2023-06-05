@@ -637,6 +637,26 @@ impl TypeSubstitution {
 
 		Ok(tt)
 	    }
+	    Expr::Fst(p) => {
+		let pt = self.reconstruct(p,env)?;
+
+		let rt1 = self.genvar();
+		let rt2 = self.genvar();
+		let tt = Type::Pair(Box::new(rt1.clone()),Box::new(rt2));
+
+		self.unify(&pt,&tt)?;
+		Ok(self.get(&rt1))
+	    }
+	    Expr::Snd(p) => {
+		let pt = self.reconstruct(p,env)?;
+
+		let rt1 = self.genvar();
+		let rt2 = self.genvar();
+		let tt = Type::Pair(Box::new(rt1),Box::new(rt2.clone()));
+
+		self.unify(&pt,&tt)?;
+		Ok(self.get(&rt2))
+	    }
         }
     }
 }
@@ -849,5 +869,14 @@ mod test {
                 Box::new(Type::Integer)
             )
         );
+    }
+
+    #[test]
+    fn pairs() {
+	let expr = Expr::parse(&"(snd (fst (pair (pair 1.0 1) true)))".parse::<SExpr>().unwrap()).unwrap();
+	let (mut sub, env, _, _) = crate::stdlib::initialize();
+	let t = sub.reconstruct(&expr, &env).unwrap();
+
+	assert_eq!(t,Type::Integer);
     }
 }
