@@ -115,8 +115,8 @@ impl std::fmt::Display for Expr {
             Expr::Scan(fun, init, arr) => write!(f, "(scan {fun} {init} {arr})"),
             Expr::Iota(n) => write!(f, "(iota {n})"),
             Expr::Pair(e1, e2) => write!(f, "(pair {e1} {e2})"),
-	    Expr::Fst(e) => write!(f,"(fst {e})"),
-	    Expr::Snd(e) => write!(f,"(snd {e})"),
+            Expr::Fst(e) => write!(f, "(fst {e})"),
+            Expr::Snd(e) => write!(f, "(snd {e})"),
         }
     }
 }
@@ -365,11 +365,11 @@ impl Expr {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: pair statement expects two expressions: (pairs e1 e2)")))
                                 }
                             }
-			    "fst" => {
+                            "fst" => {
                                 if vs.len() == 2 {
                                     let arg = vs.get(1).ok_or(Error::SyntaxError(format!(
-                                    "[{start_pos}]: fst statement expects an argument: (fst p)"
-                                )))?;
+                                        "[{start_pos}]: fst statement expects an argument: (fst p)"
+                                    )))?;
                                     let arg = Expr::parse(arg)?;
 
                                     Ok(Expr::Fst(Box::new(arg)))
@@ -377,11 +377,11 @@ impl Expr {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: fst statement expects one expression: (fst p)")))
                                 }
                             }
-			    "snd" => {
+                            "snd" => {
                                 if vs.len() == 2 {
                                     let arg = vs.get(1).ok_or(Error::SyntaxError(format!(
-                                    "[{start_pos}]: snd statement expects an argument: (snd p)"
-                                )))?;
+                                        "[{start_pos}]: snd statement expects an argument: (snd p)"
+                                    )))?;
                                     let arg = Expr::parse(arg)?;
 
                                     Ok(Expr::Snd(Box::new(arg)))

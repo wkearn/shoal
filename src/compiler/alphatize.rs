@@ -106,12 +106,8 @@ impl Alphatizer {
                 Box::new(self.alphatize(e1, env)?),
                 Box::new(self.alphatize(e2, env)?),
             )),
-	    Expr::Fst(e) => Ok(Expr::Fst(
-                Box::new(self.alphatize(e, env)?),
-            )),
-	    Expr::Snd(e) => Ok(Expr::Snd(
-                Box::new(self.alphatize(e, env)?),
-            )),
+            Expr::Fst(e) => Ok(Expr::Fst(Box::new(self.alphatize(e, env)?))),
+            Expr::Snd(e) => Ok(Expr::Snd(Box::new(self.alphatize(e, env)?))),
         }
     }
 }

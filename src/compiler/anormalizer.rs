@@ -75,8 +75,8 @@ impl From<ComplexExpr> for Expr {
             ComplexExpr::Pair(e1, e2) => {
                 Expr::Pair(Box::new(Expr::from(*e1)), Box::new(Expr::from(*e2)))
             }
-	    ComplexExpr::Fst(p) => Expr::Fst(Box::new(Expr::from(*p))),
-	    ComplexExpr::Snd(p) => Expr::Snd(Box::new(Expr::from(*p))),
+            ComplexExpr::Fst(p) => Expr::Fst(Box::new(Expr::from(*p))),
+            ComplexExpr::Snd(p) => Expr::Snd(Box::new(Expr::from(*p))),
         }
     }
 }
@@ -264,10 +264,10 @@ impl ANormalizer {
                     )))
                 })
             }),
-	    Expr::Fst(e) => self.normalize_name(e, &|t0| {
+            Expr::Fst(e) => self.normalize_name(e, &|t0| {
                 k(NormalExpr::Complex(ComplexExpr::Fst(Box::new(t0.clone()))))
             }),
-	    Expr::Snd(e) => self.normalize_name(e, &|t0| {
+            Expr::Snd(e) => self.normalize_name(e, &|t0| {
                 k(NormalExpr::Complex(ComplexExpr::Snd(Box::new(t0.clone()))))
             }),
         }
