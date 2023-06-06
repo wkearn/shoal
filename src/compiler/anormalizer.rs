@@ -92,7 +92,7 @@ pub enum NormalExpr {
     Atomic(AtomicExpr),
 }
 
-impl<T> From<NormalExpr> for Expr<T> {
+impl From<NormalExpr> for Expr<()> {
     fn from(normal: NormalExpr) -> Self {
         match normal {
             NormalExpr::Let(arg, def, body) => {
