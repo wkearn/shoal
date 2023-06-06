@@ -1,7 +1,7 @@
 pub mod primitives;
 
 use crate::error::Error;
-use crate::parser::Expr;
+use crate::parser::{Expr,sexpr::lexer::Position};
 
 use primitives::PrimitiveOp;
 
@@ -14,8 +14,8 @@ pub enum Value {
     Integer(i64),
     Float(f64),
     Array(Box<[Value]>),
-    Function(Box<str>, Expr, Env),
-    BinaryFunction(Box<str>, Box<str>, Expr, Env),
+    Function(Box<str>, Expr<Position>, Env),
+    BinaryFunction(Box<str>, Box<str>, Expr<Position>, Env),
     PrimitiveFunction(Box<str>),
     Pair(Box<Value>, Box<Value>),
 }
