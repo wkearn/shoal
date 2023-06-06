@@ -1,17 +1,19 @@
 pub mod sexpr;
 
-use sexpr::parser::{SExpr, SExprs};
-
 use crate::error::Error;
+use crate::parser::sexpr::{
+    lexer::Position,
+    parser::{SExpr, SExprs},
+};
 
 /// A program is a collection of statements
 #[derive(Debug)]
-pub struct Program(Vec<Statement>);
+pub struct Program<T>(Vec<Statement<T>>);
 
-impl TryFrom<SExprs> for Program {
+impl TryFrom<SExprs> for Program<Position> {
     type Error = Error;
     fn try_from(vs: SExprs) -> Result<Self, Error> {
-        let statements: Result<Vec<Statement>, Error> =
+        let statements: Result<Vec<Statement<Position>>, Error> =
             vs.list().iter().map(Statement::parse).collect();
         Ok(Program(statements?))
     }
@@ -19,12 +21,12 @@ impl TryFrom<SExprs> for Program {
 
 /// A statement in a shoal program is either a definition or an expression
 #[derive(Debug)]
-pub enum Statement {
-    Definition(Box<str>, Expr),
-    Expression(Expr),
+pub enum Statement<T> {
+    Definition(T, Box<str>, Expr<T>),
+    Expression(Expr<T>),
 }
 
-impl TryFrom<SExpr> for Statement {
+impl TryFrom<SExpr> for Statement<Position> {
     type Error = Error;
 
     fn try_from(sexpr: SExpr) -> Result<Self, Error> {
@@ -32,7 +34,7 @@ impl TryFrom<SExpr> for Statement {
     }
 }
 
-impl Statement {
+impl Statement<Position> {
     pub fn parse(sexpr: &SExpr) -> Result<Self, Error> {
         match sexpr {
             SExpr::List(vs, start_pos, _) => {
@@ -50,25 +52,25 @@ impl Statement {
                             match var {
 				    SExpr::Atom(v,_, _) => {
 					let def = vs.get(2).ok_or(Error::SyntaxError(format!("[{head_start}]: define statement missing body")))?;
-					let ex: Expr = Expr::parse(def)?;
-					Ok(Statement::Definition(v.clone(), ex))
+					let ex = Expr::parse(def)?;
+					Ok(Statement::Definition(start_pos.clone(),v.clone(), ex))
 				    }
 				    _ => Err(Error::SyntaxError(format!("[{head_start}]: Expected identifier in first argument to define")))
 				}
                         }
                         _ => {
-                            let ex: Expr = Expr::parse(sexpr)?;
+                            let ex = Expr::parse(sexpr)?;
                             Ok(Statement::Expression(ex))
                         }
                     },
                     _ => {
-                        let ex: Expr = Expr::parse(sexpr)?;
+                        let ex = Expr::parse(sexpr)?;
                         Ok(Statement::Expression(ex))
                     }
                 }
             }
             _ => {
-                let ex: Expr = Expr::parse(sexpr)?;
+                let ex = Expr::parse(sexpr)?;
                 Ok(Statement::Expression(ex))
             }
         }
@@ -77,72 +79,68 @@ impl Statement {
 
 /// shoal's abstract syntax tree
 #[derive(Debug, Clone)]
-pub enum Expr {
-    BooleanLiteral(bool),
-    IntegerLiteral(i64),
-    FloatLiteral(f64),
-    Identifier(Box<str>),
-    Lambda(Box<str>, Box<Expr>),
-    BinLambda(Box<str>, Box<str>, Box<Expr>),
-    App(Box<Expr>, Box<Expr>),
-    BinApp(Box<Expr>, Box<Expr>, Box<Expr>),
-    Let(Box<str>, Box<Expr>, Box<Expr>),
-    If(Box<Expr>, Box<Expr>, Box<Expr>),
-    Map(Box<Expr>, Box<Expr>),
-    Reduce(Box<Expr>, Box<Expr>, Box<Expr>),
-    Scan(Box<Expr>, Box<Expr>, Box<Expr>),
-    Iota(Box<Expr>),
-    Pair(Box<Expr>, Box<Expr>),
-    Fst(Box<Expr>),
-    Snd(Box<Expr>),
+pub enum Expr<T> {
+    BooleanLiteral(T, bool),
+    IntegerLiteral(T, i64),
+    FloatLiteral(T, f64),
+    Identifier(T, Box<str>),
+    Lambda(T, Box<str>, Box<Expr<T>>),
+    BinLambda(T, Box<str>, Box<str>, Box<Expr<T>>),
+    App(T, Box<Expr<T>>, Box<Expr<T>>),
+    BinApp(T, Box<Expr<T>>, Box<Expr<T>>, Box<Expr<T>>),
+    Let(T, Box<str>, Box<Expr<T>>, Box<Expr<T>>),
+    If(T, Box<Expr<T>>, Box<Expr<T>>, Box<Expr<T>>),
+    Map(T, Box<Expr<T>>, Box<Expr<T>>),
+    Reduce(T, Box<Expr<T>>, Box<Expr<T>>, Box<Expr<T>>),
+    Scan(T, Box<Expr<T>>, Box<Expr<T>>, Box<Expr<T>>),
+    Iota(T, Box<Expr<T>>),
+    Pair(T, Box<Expr<T>>, Box<Expr<T>>),
+    Fst(T, Box<Expr<T>>),
+    Snd(T, Box<Expr<T>>),
 }
 
-impl std::fmt::Display for Expr {
+impl<T> std::fmt::Display for Expr<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
-            Expr::BooleanLiteral(v) => write!(f, "{v}"),
-            Expr::IntegerLiteral(v) => write!(f, "{v}"),
-            Expr::FloatLiteral(v) => write!(f, "{v}"),
-            Expr::Identifier(s) => write!(f, "{s}"),
-            Expr::Lambda(arg, body) => write!(f, "(lambda ({arg}) {body})"),
-            Expr::BinLambda(arg0, arg1, body) => write!(f, "(lambda ({arg0} {arg1}) {body})"),
-            Expr::App(fun, arg) => write!(f, "({fun} {arg})"),
-            Expr::BinApp(fun, arg0, arg1) => write!(f, "({fun} {arg0} {arg1})"),
-            Expr::Let(arg, def, body) => write!(f, "(let (({arg} {def})) {body})"),
-            Expr::If(cond, conseq, alt) => write!(f, "(if {cond} {conseq} {alt})"),
-            Expr::Map(fun, arr) => write!(f, "(map {fun} {arr})"),
-            Expr::Reduce(fun, init, arr) => write!(f, "(reduce {fun} {init} {arr})"),
-            Expr::Scan(fun, init, arr) => write!(f, "(scan {fun} {init} {arr})"),
-            Expr::Iota(n) => write!(f, "(iota {n})"),
-            Expr::Pair(e1, e2) => write!(f, "(pair {e1} {e2})"),
-            Expr::Fst(e) => write!(f, "(fst {e})"),
-            Expr::Snd(e) => write!(f, "(snd {e})"),
+            Expr::BooleanLiteral(_, v) => write!(f, "{v}"),
+            Expr::IntegerLiteral(_, v) => write!(f, "{v}"),
+            Expr::FloatLiteral(_, v) => write!(f, "{v}"),
+            Expr::Identifier(_, s) => write!(f, "{s}"),
+            Expr::Lambda(_, arg, body) => write!(f, "(lambda ({arg}) {body})"),
+            Expr::BinLambda(_, arg0, arg1, body) => write!(f, "(lambda ({arg0} {arg1}) {body})"),
+            Expr::App(_, fun, arg) => write!(f, "({fun} {arg})"),
+            Expr::BinApp(_, fun, arg0, arg1) => write!(f, "({fun} {arg0} {arg1})"),
+            Expr::Let(_, arg, def, body) => write!(f, "(let (({arg} {def})) {body})"),
+            Expr::If(_, cond, conseq, alt) => write!(f, "(if {cond} {conseq} {alt})"),
+            Expr::Map(_, fun, arr) => write!(f, "(map {fun} {arr})"),
+            Expr::Reduce(_, fun, init, arr) => write!(f, "(reduce {fun} {init} {arr})"),
+            Expr::Scan(_, fun, init, arr) => write!(f, "(scan {fun} {init} {arr})"),
+            Expr::Iota(_, n) => write!(f, "(iota {n})"),
+            Expr::Pair(_, e1, e2) => write!(f, "(pair {e1} {e2})"),
+            Expr::Fst(_, e) => write!(f, "(fst {e})"),
+            Expr::Snd(_, e) => write!(f, "(snd {e})"),
         }
     }
 }
 
-impl TryFrom<SExpr> for Expr {
-    type Error = Error;
-
-    fn try_from(sexpr: SExpr) -> Result<Self, Error> {
-        Expr::parse(&sexpr)
-    }
-}
-
-impl Expr {
-    pub fn parse(sexpr: &SExpr) -> Result<Expr, Error> {
+impl Expr<Position> {
+    pub fn parse(sexpr: &SExpr) -> Result<Self, Error> {
         match sexpr {
-            SExpr::Boolean(v, _, _) => Ok(Expr::BooleanLiteral(v.clone())),
-            SExpr::Integer(v, _, _) => Ok(Expr::IntegerLiteral(v.clone())),
-            SExpr::Float(v, _, _) => Ok(Expr::FloatLiteral(v.clone())),
-            SExpr::Atom(s, _, _) => Ok(Expr::Identifier(s.clone())),
+            SExpr::Boolean(v, start_pos, _) => {
+                Ok(Expr::BooleanLiteral(start_pos.clone(), v.clone()))
+            }
+            SExpr::Integer(v, start_pos, _) => {
+                Ok(Expr::IntegerLiteral(start_pos.clone(), v.clone()))
+            }
+            SExpr::Float(v, start_pos, _) => Ok(Expr::FloatLiteral(start_pos.clone(), v.clone())),
+            SExpr::Atom(s, start_pos, _) => Ok(Expr::Identifier(start_pos.clone(), s.clone())),
             SExpr::List(vs, start_pos, _) => {
                 let head: &SExpr = vs.get(0).ok_or(Error::SyntaxError(format!(
                     "[{start_pos}]: Empty list form"
                 )))?;
 
                 match head {
-                    SExpr::Atom(s, _, _) => {
+                    SExpr::Atom(s, head_start, _) => {
                         match &**s {
                             "lambda" => {
                                 // Lambda abstraction
@@ -155,7 +153,7 @@ impl Expr {
                                         "[{start_pos}]: lambda abstraction missing body"
                                     )))?;
 
-                                    let body = Expr::parse(body)?;
+                                    let body: Expr<Position> = Expr::parse(body)?;
 
                                     match args {
                                         SExpr::List(arg_list, args_start, _) => {
@@ -172,6 +170,7 @@ impl Expr {
                                                             SExpr::Atom(s0, _, _),
                                                             SExpr::Atom(s1, _, _),
                                                         ) => Ok(Expr::BinLambda(
+                                                            start_pos.clone(),
                                                             s0.clone(),
                                                             s1.clone(),
                                                             Box::new(body),
@@ -183,6 +182,7 @@ impl Expr {
                                                 } else {
                                                     match arg0 {
                                                         SExpr::Atom(s, _, _) => Ok(Expr::Lambda(
+                                                            start_pos.clone(),
                                                             s.clone(),
                                                             Box::new(body),
                                                         )),
@@ -227,6 +227,7 @@ impl Expr {
                                                 )),
                                                 )?)?;
                                                 Ok(Expr::Let(
+                                                    start_pos.clone(),
                                                     arg.clone(),
                                                     Box::new(def),
                                                     Box::new(body),
@@ -270,7 +271,12 @@ impl Expr {
                                     )))?;
                                     let alt = Expr::parse(alt)?;
 
-                                    Ok(Expr::If(Box::new(cond), Box::new(conseq), Box::new(alt)))
+                                    Ok(Expr::If(
+                                        start_pos.clone(),
+                                        Box::new(cond),
+                                        Box::new(conseq),
+                                        Box::new(alt),
+                                    ))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: if statement should be applied to three expressions")))
                                 }
@@ -287,7 +293,7 @@ impl Expr {
                                     )))?;
                                     let arr = Expr::parse(arr)?;
 
-                                    Ok(Expr::Map(Box::new(fun), Box::new(arr)))
+                                    Ok(Expr::Map(start_pos.clone(), Box::new(fun), Box::new(arr)))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: map statement expects two expressions: (map f xs)")))
                                 }
@@ -309,7 +315,12 @@ impl Expr {
                                 )))?;
                                     let arr = Expr::parse(arr)?;
 
-                                    Ok(Expr::Reduce(Box::new(fun), Box::new(init), Box::new(arr)))
+                                    Ok(Expr::Reduce(
+                                        start_pos.clone(),
+                                        Box::new(fun),
+                                        Box::new(init),
+                                        Box::new(arr),
+                                    ))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: reduce statement expects three expressions: (reduce f init arg)")))
                                 }
@@ -331,7 +342,12 @@ impl Expr {
                                 )))?;
                                     let arr = Expr::parse(arr)?;
 
-                                    Ok(Expr::Scan(Box::new(fun), Box::new(init), Box::new(arr)))
+                                    Ok(Expr::Scan(
+                                        start_pos.clone(),
+                                        Box::new(fun),
+                                        Box::new(init),
+                                        Box::new(arr),
+                                    ))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: scan statement expects three expressions: (scan f init arg)")))
                                 }
@@ -343,7 +359,7 @@ impl Expr {
                                 )))?;
                                     let arg = Expr::parse(arg)?;
 
-                                    Ok(Expr::Iota(Box::new(arg)))
+                                    Ok(Expr::Iota(start_pos.clone(), Box::new(arg)))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: iota statement expects one expression: (iota n)")))
                                 }
@@ -360,7 +376,11 @@ impl Expr {
                                     )))?;
                                     let arg2 = Expr::parse(arg2)?;
 
-                                    Ok(Expr::Pair(Box::new(arg1), Box::new(arg2)))
+                                    Ok(Expr::Pair(
+                                        start_pos.clone(),
+                                        Box::new(arg1),
+                                        Box::new(arg2),
+                                    ))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: pair statement expects two expressions: (pairs e1 e2)")))
                                 }
@@ -372,7 +392,7 @@ impl Expr {
                                     )))?;
                                     let arg = Expr::parse(arg)?;
 
-                                    Ok(Expr::Fst(Box::new(arg)))
+                                    Ok(Expr::Fst(start_pos.clone(), Box::new(arg)))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: fst statement expects one expression: (fst p)")))
                                 }
@@ -384,7 +404,7 @@ impl Expr {
                                     )))?;
                                     let arg = Expr::parse(arg)?;
 
-                                    Ok(Expr::Snd(Box::new(arg)))
+                                    Ok(Expr::Snd(start_pos.clone(), Box::new(arg)))
                                 } else {
                                     Err(Error::SyntaxError(format!("[{start_pos}]: fst statement expects one expression: (snd p)")))
                                 }
@@ -401,13 +421,21 @@ impl Expr {
                                     if let Some(arg1) = vs.get(2) {
                                         let arg1 = Expr::parse(arg1)?;
                                         Ok(Expr::BinApp(
-                                            Box::new(Expr::Identifier(s.clone())),
+                                            start_pos.clone(),
+                                            Box::new(Expr::Identifier(
+                                                head_start.clone(),
+                                                s.clone(),
+                                            )),
                                             Box::new(arg0),
                                             Box::new(arg1),
                                         ))
                                     } else {
                                         Ok(Expr::App(
-                                            Box::new(Expr::Identifier(s.clone())),
+                                            start_pos.clone(),
+                                            Box::new(Expr::Identifier(
+                                                head_start.clone(),
+                                                s.clone(),
+                                            )),
                                             Box::new(arg0),
                                         ))
                                     }
@@ -432,9 +460,14 @@ impl Expr {
 
                             if let Some(arg1) = vs.get(2) {
                                 let arg1 = Expr::parse(arg1)?;
-                                Ok(Expr::BinApp(Box::new(fun), Box::new(arg0), Box::new(arg1)))
+                                Ok(Expr::BinApp(
+                                    start_pos.clone(),
+                                    Box::new(fun),
+                                    Box::new(arg0),
+                                    Box::new(arg1),
+                                ))
                             } else {
-                                Ok(Expr::App(Box::new(fun), Box::new(arg0)))
+                                Ok(Expr::App(start_pos.clone(), Box::new(fun), Box::new(arg0)))
                             }
                         } else {
                             Err(Error::SyntaxError(format!(
@@ -451,9 +484,17 @@ impl Expr {
     }
 }
 
+impl TryFrom<SExpr> for Expr<Position> {
+    type Error = Error;
+
+    fn try_from(sexpr: SExpr) -> Result<Self, Error> {
+        Expr::parse(&sexpr)
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::{Expr, Program, SExpr, SExprs, Statement};
+    use super::{Expr, Position, Program, SExpr, SExprs, Statement};
 
     #[test]
     fn test1() {
@@ -497,12 +538,13 @@ mod test {
     #[test]
     fn test7() {
         let src: SExpr = "(define incr (lambda (u) (+ u 1)))".parse().unwrap();
-        let Statement::Definition(var,def) = Statement::parse(&src).unwrap() else { panic!("Expected definition, found expression")};
+        let Statement::Definition(pos,var,def) = Statement::parse(&src).unwrap() else { panic!("Expected definition, found expression")};
 
+        assert_eq!(pos, Position::new(1, 0));
         assert_eq!(var, "incr".into());
 
         match def {
-            Expr::Lambda(_, _) => {}
+            Expr::Lambda(_, _, _) => {}
             _ => panic!("Expected lambda found {def:?}"),
         }
     }
@@ -513,14 +555,27 @@ mod test {
         let Statement::Expression(ex) = Statement::parse(&src).unwrap() else { panic!("Expected expression, found definition")};
 
         match ex {
-            Expr::App(_, _) => {}
+            Expr::App(pos, fun, arg) => {
+                assert_eq!(pos, Position::new(1, 0));
+                match *fun {
+                    Expr::Lambda(tag, var, body) => {
+                        assert_eq!(tag, Position::new(1, 1));
+                        assert_eq!(var, "u".into());
+                        match *body {
+                            Expr::BinApp(_, _, _, _) => {}
+                            _ => panic!("Expected binary application, found {body:?}"),
+                        }
+                    }
+                    _ => panic!("Expected lambda found {fun:?}"),
+                }
+            }
             _ => panic!("Expected application found {ex:?}"),
         }
     }
 
     #[test]
     fn parse_program() {
-        let prog: Program = "(define incr (lambda (u) (+ u 1)))\n(incr 0)"
+        let prog: Program<Position> = "(define incr (lambda (u) (+ u 1)))\n(incr 0)"
             .parse::<SExprs>()
             .unwrap()
             .try_into()
