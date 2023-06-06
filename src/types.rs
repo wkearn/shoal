@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 // TODO: additional numeric types
 /// The set of valid types for a shoal expression
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Boolean,
     Integer,
