@@ -35,7 +35,7 @@ pub fn repl() -> Result<(), Error> {
                     sub.clear(); // Clear the substitution
                     match sub.reconstruct(&ast, &type_env) {
                         Ok(t) => {
-                            println!("{ast:?}: {t:?}");
+                            println!("{ast:?}: {}",t.tag());
                             match interpreter::eval(&ast, &env, &prims) {
                                 Ok(v) => println!("{v}"),
                                 Err(e) => {
