@@ -555,7 +555,7 @@ mod test {
         let Statement::Expression(ex) = Statement::parse(&src).unwrap() else { panic!("Expected expression, found definition")};
 
         match ex {
-            Expr::App(pos, fun, arg) => {
+            Expr::App(pos, fun, _) => {
                 assert_eq!(pos, Position::new(1, 0));
                 match *fun {
                     Expr::Lambda(tag, var, body) => {
