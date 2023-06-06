@@ -287,35 +287,35 @@ mod test {
     #[test]
     fn test1() {
         let src: SExpr = "(lambda (x) 1)".parse().unwrap();
-        let ex: Expr = Expr::parse(&src).unwrap();
+        let ex = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 
     #[test]
     fn test2() {
         let src: SExpr = "((lambda (x) x) 0)".parse().unwrap();
-        let ex: Expr = Expr::parse(&src).unwrap();
+        let ex = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 
     #[test]
     fn test3() {
         let src: SExpr = "(if (> 1 0) false true)".parse().unwrap();
-        let ex: Expr = Expr::parse(&src).unwrap();
+        let ex = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 
     #[test]
     fn test4() {
         let src: SExpr = "(let ((f (lambda (x) x))) (f (foo 10)))".parse().unwrap();
-        let ex: Expr = Expr::parse(&src).unwrap();
+        let ex = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 
     #[test]
     fn test5() {
         let src: SExpr = "(let ((incr (lambda (u) (+ u 1)))) (let ((factorial (lambda (n) (reduce * 1 (map incr (iota n)))))) (factorial 6)))".parse().unwrap();
-        let ex: Expr = Expr::parse(&src).unwrap();
+        let ex = Expr::parse(&src).unwrap();
         let _tex: NormalExpr = ANormalizer::new().normalize_term(&ex).unwrap();
     }
 }
