@@ -310,7 +310,7 @@ mod test {
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Float64);
+        assert_eq!(t.tag(), &Type::Float64);
     }
 
     #[test]
@@ -326,7 +326,7 @@ mod test {
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Float64);
+        assert_eq!(t.tag(), &Type::Float64);
 
         //
         let expr = Expr::parse(
@@ -340,7 +340,7 @@ mod test {
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Integer);
+        assert_eq!(t.tag(), &Type::Integer);
 
         //
         let expr = Expr::parse(
@@ -354,7 +354,7 @@ mod test {
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Float64);
+        assert_eq!(t.tag(), &Type::Float64);
 
         //
         let expr = Expr::parse(
@@ -409,6 +409,6 @@ mod test {
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Boolean);
+        assert_eq!(t.tag(), &Type::Boolean);
     }
 }

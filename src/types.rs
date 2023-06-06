@@ -407,13 +407,13 @@ impl TypeSubstitution {
             }
         }
     }
-    pub fn reconstruct<T>(&mut self, expr: &Expr<T>, env: &TypeEnv) -> Result<Type, Error> {
+    pub fn reconstruct<T>(&mut self, expr: &Expr<T>, env: &TypeEnv) -> Result<Expr<Type>, Error> {
         match expr {
-            Expr::BooleanLiteral(_, _) => Ok(Type::Boolean),
-            Expr::IntegerLiteral(_, _) => Ok(Type::Integer),
-            Expr::FloatLiteral(_, _) => {
+            Expr::BooleanLiteral(_, v) => Ok(Expr::BooleanLiteral(Type::Boolean,v.clone())),
+            Expr::IntegerLiteral(_, v) => Ok(Expr::IntegerLiteral(Type::Integer,v.clone())),
+            Expr::FloatLiteral(_, v) => {
                 // TODO: Literal overloading for Float64/Float32
-                Ok(Type::Float64)
+                Ok(Expr::FloatLiteral(Type::Float64,v.clone()))
             }
             Expr::Identifier(_, s) => {
                 let x = env
@@ -422,7 +422,7 @@ impl TypeSubstitution {
                     .ok_or(Error::UndefinedVariableError(format!("{s}")))?;
 
                 match x {
-                    TypeScheme::PlainType(t) => Ok(t.clone()),
+                    TypeScheme::PlainType(t) => Ok(Expr::Identifier(t.clone(),s.clone())),
                     TypeScheme::QuantifiedType(vs, t) => {
                         let mut local_sub = TypeSubstitution::new();
                         for v in vs {
@@ -439,13 +439,13 @@ impl TypeSubstitution {
                             }
                         }
                         let tt = local_sub.get(t);
-                        Ok(tt)
+                        Ok(Expr::Identifier(tt,s.clone()))
                     }
                 }
             }
             Expr::Lambda(_, arg, body) => {
                 // Extend the local environment
-                let (arg_type, body_type) = {
+                let (arg_type, body_expr) = {
                     let mut local_env = TypeEnv::new();
                     local_env
                         .0
@@ -455,22 +455,23 @@ impl TypeSubstitution {
                         .0
                         .insert(arg.clone(), TypeScheme::PlainType(arg_type));
 
-                    let body_type = self.reconstruct(body, &local_env)?;
+                    let body_expr = self.reconstruct(body, &local_env)?;
 
                     // Since we destroy the local environment as soon as we finish reconstructing it,
                     // we can get the generated variable back by removing it from the HashMap.
                     let Some(TypeScheme::PlainType(arg_type)) = local_env.0.remove(arg) else {unreachable!()};
-                    (arg_type, body_type)
+                    (arg_type, body_expr)
                 };
 
                 let new_arg = self.get(&arg_type);
-                let new_body = self.get(&body_type);
+                let new_body = self.get(body_expr.tag());
 
-                Ok(Type::Function(Box::new(new_arg), Box::new(new_body)))
+		let tt = Type::Function(Box::new(new_arg), Box::new(new_body));
+                Ok(Expr::Lambda(tt,arg.clone(),Box::new(body_expr)))
             }
             Expr::BinLambda(_, arg0, arg1, body) => {
                 // Extend the local environment
-                let (arg0_type, arg1_type, body_type) = {
+                let (arg0_type, arg1_type, body_expr) = {
                     let mut local_env = TypeEnv::new();
                     local_env
                         .0
@@ -484,35 +485,36 @@ impl TypeSubstitution {
                         .0
                         .insert(arg1.clone(), TypeScheme::PlainType(arg1_type));
 
-                    let body_type = self.reconstruct(body, &local_env)?;
+                    let body_expr = self.reconstruct(body, &local_env)?;
 
                     // Since we destroy the local environment as soon as we finish reconstructing it,
                     // we can get the generated variable back by removing it from the HashMap.
                     let Some(TypeScheme::PlainType(arg0_type)) = local_env.0.remove(arg0) else {unreachable!()};
                     let Some(TypeScheme::PlainType(arg1_type)) = local_env.0.remove(arg1) else {unreachable!()};
-                    (arg0_type, arg1_type, body_type)
+                    (arg0_type, arg1_type, body_expr)
                 };
 
                 let new_arg0 = self.get(&arg0_type);
                 let new_arg1 = self.get(&arg1_type);
-                let new_body = self.get(&body_type);
+                let new_body = self.get(body_expr.tag());
 
-                Ok(Type::BinaryFunction(
+		let tt = Type::BinaryFunction(
                     Box::new(new_arg0),
                     Box::new(new_arg1),
                     Box::new(new_body),
-                ))
+                );
+		Ok(Expr::BinLambda(tt,arg0.clone(),arg1.clone(),Box::new(body_expr)))		
             }
             Expr::Let(_, arg, def, body) => {
                 // Reconstruct the principal type of def
-                let t1 = self.reconstruct(def, env)?;
-                let t1 = self.get(&t1);
+                let def_expr = self.reconstruct(def, env)?;
+                let t1 = self.get(def_expr.tag());
 
                 // Generalize over the free variables in t1
                 let t1 = t1.generalize(env);
 
                 // Extend environment with arg -> t1
-                let body_type = {
+                let body_expr = {
                     let mut local_env = TypeEnv::new();
                     local_env
                         .0
@@ -522,7 +524,8 @@ impl TypeSubstitution {
                     self.reconstruct(body, &local_env)?
                 };
 
-                Ok(self.get(&body_type))
+		let tt = self.get(body_expr.tag());
+                Ok(Expr::Let(tt, arg.clone(), Box::new(def_expr), Box::new(body_expr)))
             }
             Expr::App(_, fun, arg) => {
                 // (f:(a -> b) arg: a):b
@@ -531,11 +534,13 @@ impl TypeSubstitution {
 
                 let rt = self.genvar();
 
-                let tt = Type::Function(Box::new(at), Box::new(rt.clone()));
+                let tt = Type::Function(Box::new(at.tag().clone()), Box::new(rt.clone()));
 
-                self.unify(&ft, &tt)?;
+                self.unify(ft.tag(), &tt)?;
 
-                Ok(self.get(&rt))
+		let rt = self.get(&rt);
+
+                Ok(Expr::App(rt, Box::new(ft), Box::new(at)))
             }
             Expr::BinApp(_, fun, arg0, arg1) => {
                 let ft = self.reconstruct(fun, env)?;
@@ -544,24 +549,26 @@ impl TypeSubstitution {
 
                 let rt = self.genvar();
 
-                let tt = Type::BinaryFunction(Box::new(at0), Box::new(at1), Box::new(rt.clone()));
+                let tt = Type::BinaryFunction(Box::new(at0.tag().clone()), Box::new(at1.tag().clone()), Box::new(rt.clone()));
 
-                self.unify(&ft, &tt)?;
+                self.unify(ft.tag(), &tt)?;
 
-                Ok(self.get(&rt))
+		let rt = self.get(&rt);
+		Ok(Expr::BinApp(rt, Box::new(ft), Box::new(at0), Box::new(at1)))
             }
             Expr::If(_, pred, conseq, alt) => {
                 // Predicate must be a Boolean
                 let pt = self.reconstruct(pred, env)?;
-                self.unify(&pt, &Type::Boolean)?;
+                self.unify(pt.tag(), &Type::Boolean)?;
 
                 // Consequent and alternative must have the same type
                 let ct = self.reconstruct(conseq, env)?;
                 let at = self.reconstruct(alt, env)?;
-                self.unify(&ct, &at)?;
+                self.unify(ct.tag(), at.tag())?;
 
                 // Does it matter whether we return ct or at?
-                Ok(self.get(&at))
+		let tt = self.get(at.tag());
+		Ok(Expr::If(tt, Box::new(pt), Box::new(ct), Box::new(at)))
             }
             Expr::Map(_, fun, arg) => {
                 // map: ∀a b . (a -> b) -> [a] -> [b]
@@ -570,14 +577,14 @@ impl TypeSubstitution {
 
                 // at == [et]
                 let et = self.genvar();
-                self.unify(&at, &Type::Array(Box::new(et.clone())))?;
+                self.unify(at.tag(), &Type::Array(Box::new(et.clone())))?;
 
                 // ft == el_type -> rt
                 let rt = self.genvar();
                 let tt = Type::Function(Box::new(et), Box::new(rt.clone()));
-                self.unify(&ft, &tt)?;
+                self.unify(ft.tag(), &tt)?;
 
-                Ok(Type::Array(Box::new(self.get(&rt))))
+		Ok(Expr::Map(Type::Array(Box::new(self.get(&rt))),Box::new(ft),Box::new(at)))
             }
             Expr::Reduce(_, fun, init, arg) => {
                 // reduce: ∀ a b . (b x a -> b) -> b -> [a] -> b
@@ -588,18 +595,18 @@ impl TypeSubstitution {
 
                 // at == [et]
                 let et = self.genvar();
-                self.unify(&at, &Type::Array(Box::new(et.clone())))?;
+                self.unify(at.tag(), &Type::Array(Box::new(et.clone())))?;
 
                 let rt = self.genvar();
                 let tt =
                     Type::BinaryFunction(Box::new(rt.clone()), Box::new(et), Box::new(rt.clone()));
 
                 // ft == rt x et -> rt
-                self.unify(&ft, &tt)?;
+                self.unify(ft.tag(), &tt)?;
                 // it == rt
-                self.unify(&it, &rt)?;
+                self.unify(it.tag(), &rt)?;
 
-                Ok(self.get(&rt))
+                Ok(Expr::Reduce(self.get(&rt),Box::new(ft),Box::new(it),Box::new(at)))
             }
             Expr::Scan(_, fun, init, arg) => {
                 // scan: ∀ a b . (b x a -> b) -> b -> [a] -> b
@@ -610,32 +617,32 @@ impl TypeSubstitution {
 
                 let et = self.genvar();
 
-                self.unify(&at, &Type::Array(Box::new(et.clone())))?;
+                self.unify(at.tag(), &Type::Array(Box::new(et.clone())))?;
 
                 let rt = self.genvar();
                 let tt =
                     Type::BinaryFunction(Box::new(rt.clone()), Box::new(et), Box::new(rt.clone()));
 
                 // ft == rt x et -> rt
-                self.unify(&ft, &tt)?;
+                self.unify(ft.tag(), &tt)?;
                 // it == rt
-                self.unify(&it, &rt)?;
+                self.unify(it.tag(), &rt)?;
 
-                Ok(Type::Array(Box::new(self.get(&rt))))
+                Ok(Expr::Scan(Type::Array(Box::new(self.get(&rt))),Box::new(ft),Box::new(it),Box::new(at)))
             }
             Expr::Iota(_, n) => {
                 let nt = self.reconstruct(n, env)?;
-                self.unify(&nt, &Type::Integer)?;
+                self.unify(nt.tag(), &Type::Integer)?;
 
-                Ok(Type::Array(Box::new(Type::Integer)))
+                Ok(Expr::Iota(Type::Array(Box::new(Type::Integer)),Box::new(nt)))
             }
             Expr::Pair(_, e1, e2) => {
                 let t1 = self.reconstruct(e1, env)?;
                 let t2 = self.reconstruct(e2, env)?;
 
-                let tt = Type::Pair(Box::new(t1.clone()), Box::new(t2.clone()));
+                let tt = Type::Pair(Box::new(t1.tag().clone()), Box::new(t2.tag().clone()));
 
-                Ok(tt)
+                Ok(Expr::Pair(tt,Box::new(t1),Box::new(t2)))
             }
             Expr::Fst(_, p) => {
                 let pt = self.reconstruct(p, env)?;
@@ -644,8 +651,8 @@ impl TypeSubstitution {
                 let rt2 = self.genvar();
                 let tt = Type::Pair(Box::new(rt1.clone()), Box::new(rt2));
 
-                self.unify(&pt, &tt)?;
-                Ok(self.get(&rt1))
+                self.unify(pt.tag(), &tt)?;
+                Ok(Expr::Fst(self.get(&rt1),Box::new(pt)))
             }
             Expr::Snd(_, p) => {
                 let pt = self.reconstruct(p, env)?;
@@ -654,8 +661,8 @@ impl TypeSubstitution {
                 let rt2 = self.genvar();
                 let tt = Type::Pair(Box::new(rt1), Box::new(rt2.clone()));
 
-                self.unify(&pt, &tt)?;
-                Ok(self.get(&rt2))
+                self.unify(pt.tag(), &tt)?;
+                Ok(Expr::Snd(self.get(&rt2),Box::new(pt)))
             }
         }
     }
@@ -681,7 +688,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Float64);
+        assert_eq!(t.tag(), &Type::Float64);
 
         //
         let expr =
@@ -691,7 +698,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Integer);
+        assert_eq!(t.tag(), &Type::Integer);
 
         //
         let expr = Expr::parse(
@@ -705,7 +712,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Boolean);
+        assert_eq!(t.tag(), &Type::Boolean);
     }
 
     #[test]
@@ -716,7 +723,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Float64);
+        assert_eq!(t.tag(), &Type::Float64);
 
         //
         let expr = Expr::parse(&"(if true 1 2)".parse::<SExpr>().unwrap()).unwrap();
@@ -725,7 +732,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Integer);
+        assert_eq!(t.tag(), &Type::Integer);
 
         //
         let expr = Expr::parse(&"(if true false true)".parse::<SExpr>().unwrap()).unwrap();
@@ -734,7 +741,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Boolean);
+        assert_eq!(t.tag(), &Type::Boolean);
 
         //
         let expr = Expr::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
@@ -770,7 +777,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Integer);
+        assert_eq!(t.tag(), &Type::Integer);
 
         let expr = Expr::parse(
             &"(scan (lambda (u v) v) 0 (iota 10))"
@@ -783,7 +790,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Array(Box::new(Type::Integer)))
+        assert_eq!(t.tag(), &Type::Array(Box::new(Type::Integer)))
     }
 
     #[test]
@@ -799,7 +806,7 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Array(Box::new(Type::Boolean)));
+        assert_eq!(t.tag(), &Type::Array(Box::new(Type::Boolean)));
     }
 
     #[test]
@@ -810,7 +817,7 @@ mod test {
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(t, Type::Integer);
+        assert_eq!(t.tag(), &Type::Integer);
 
         // Let expression
         let expr = Expr::parse(
@@ -823,7 +830,7 @@ mod test {
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(t, Type::Integer);
+        assert_eq!(t.tag(), &Type::Integer);
 
         // Lambda application
         let expr = Expr::parse(
@@ -836,7 +843,7 @@ mod test {
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(t, Type::Integer);
+        assert_eq!(t.tag(), &Type::Integer);
     }
 
     #[test]
@@ -852,7 +859,7 @@ mod test {
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(t, Type::Array(Box::new(Type::Integer)));
+        assert_eq!(t.tag(), &Type::Array(Box::new(Type::Integer)));
     }
 
     #[test]
@@ -863,8 +870,8 @@ mod test {
 
         let t = sub.reconstruct(&expr, &env).unwrap();
         assert_eq!(
-            t,
-            Type::Function(
+            t.tag(),
+            &Type::Function(
                 Box::new(Type::Array(Box::new(Type::Integer))),
                 Box::new(Type::Integer)
             )
@@ -882,6 +889,6 @@ mod test {
         let (mut sub, env, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t, Type::Integer);
+        assert_eq!(t.tag(), &Type::Integer);
     }
 }
