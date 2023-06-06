@@ -125,29 +125,29 @@ impl<T> std::fmt::Display for Expr<T> {
 
 impl<T> Expr<T> {
     pub fn tag(&self) -> &T {
-	match self {
-	    Expr::BooleanLiteral(tag, _) => tag,
-	    Expr::IntegerLiteral(tag, _) => tag,
-	    Expr::FloatLiteral(tag, _) => tag,
-	    Expr::Identifier(tag, _) => tag,
-	    Expr::Lambda(tag, _, _) => tag,
-	    Expr::BinLambda(tag, _, _, _) => tag,
-	    Expr::App(tag, _, _) => tag,
-	    Expr::BinApp(tag, _, _, _) => tag,
-	    Expr::Let(tag,_,_,_) => tag,
-	    Expr::If(tag, _, _, _) => tag,
-	    Expr::Map(tag, _, _) => tag,
-	    Expr::Reduce(tag, _ ,_, _) => tag,
-	    Expr::Scan(tag, _, _,_) => tag,
-	    Expr::Iota(tag, _) => tag,
-	    Expr::Pair(tag, _ ,_) => tag,
-	    Expr::Fst(tag, _) => tag,
-	    Expr::Snd(tag, _) => tag,
-	}
+        match self {
+            Expr::BooleanLiteral(tag, _) => tag,
+            Expr::IntegerLiteral(tag, _) => tag,
+            Expr::FloatLiteral(tag, _) => tag,
+            Expr::Identifier(tag, _) => tag,
+            Expr::Lambda(tag, _, _) => tag,
+            Expr::BinLambda(tag, _, _, _) => tag,
+            Expr::App(tag, _, _) => tag,
+            Expr::BinApp(tag, _, _, _) => tag,
+            Expr::Let(tag, _, _, _) => tag,
+            Expr::If(tag, _, _, _) => tag,
+            Expr::Map(tag, _, _) => tag,
+            Expr::Reduce(tag, _, _, _) => tag,
+            Expr::Scan(tag, _, _, _) => tag,
+            Expr::Iota(tag, _) => tag,
+            Expr::Pair(tag, _, _) => tag,
+            Expr::Fst(tag, _) => tag,
+            Expr::Snd(tag, _) => tag,
+        }
     }
 }
 
-impl Expr<Position> {   
+impl Expr<Position> {
     pub fn parse(sexpr: &SExpr) -> Result<Self, Error> {
         match sexpr {
             SExpr::Boolean(v, start_pos, _) => {

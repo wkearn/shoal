@@ -35,7 +35,7 @@ pub fn repl() -> Result<(), Error> {
                     sub.clear(); // Clear the substitution
                     match sub.reconstruct(&ast, &type_env) {
                         Ok(t) => {
-                            println!("{ast:?}: {}",t.tag());
+                            println!("{ast:?}: {}", t.tag());
                             match interpreter::eval(&ast, &env, &prims) {
                                 Ok(v) => println!("{v}"),
                                 Err(e) => {
@@ -59,7 +59,8 @@ pub fn repl() -> Result<(), Error> {
                                 Ok(v) => {
                                     println!("{var} = {v}");
                                     env.insert(var.clone(), v);
-                                    type_env.insert(var, types::TypeScheme::PlainType(t.tag().clone()));
+                                    type_env
+                                        .insert(var, types::TypeScheme::PlainType(t.tag().clone()));
                                 }
                                 Err(e) => {
                                     eprintln!("{}", e);
