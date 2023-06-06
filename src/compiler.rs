@@ -4,7 +4,7 @@ pub mod anormalizer;
 use crate::error::Error;
 use crate::parser::Program;
 
-pub fn compile(_: &Program) -> Result<Program, Error> {
+pub fn compile<T>(_: &Program<T>) -> Result<Program<T>, Error> {
     // Type inference and annotation
 
     // Overloading resolution
