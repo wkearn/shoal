@@ -3,7 +3,6 @@ use crate::interpreter::{
     Env, PrimitiveTable, Value,
 };
 use crate::types::{self, Type, TypeScheme};
-use std::collections::HashSet;
 
 pub mod comparisons;
 pub mod numeric;
@@ -18,7 +17,7 @@ fn define_comparison_operator(
     ts: Vec<Box<str>>,
 ) {
     let t: Box<str> = "?S0".into();
-    let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
+    let ops: Vec<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
     hs.push(Type::TypeVar(t.clone(), ops.clone()));
     type_env.insert(
@@ -49,7 +48,7 @@ fn define_binary_operator(
     ts: Vec<Box<str>>,
 ) {
     let t: Box<str> = "?S0".into();
-    let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
+    let ops: Vec<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
     hs.push(Type::TypeVar(t.clone(), ops.clone()));
     type_env.insert(
@@ -80,7 +79,7 @@ fn define_unary_operator(
     ts: Vec<Box<str>>,
 ) {
     let t: Box<str> = "?S0".into();
-    let ops: HashSet<Box<str>> = Some(op.into()).into_iter().collect();
+    let ops: Vec<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
     hs.push(Type::TypeVar(t.clone(), ops.clone()));
     type_env.insert(
