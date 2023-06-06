@@ -250,6 +250,70 @@ impl TypeSubstitution {
         }
     }
 
+    /// Substitute all type annotations in the expression.
+    pub fn substitute(&self, expr: Expr<Type>) -> Expr<Type> {
+        match expr {
+            Expr::BooleanLiteral(t, v) => Expr::BooleanLiteral(self.get(&t), v),
+            Expr::IntegerLiteral(t, v) => Expr::IntegerLiteral(self.get(&t), v),
+            Expr::FloatLiteral(t, v) => Expr::FloatLiteral(self.get(&t), v),
+            Expr::Identifier(t, s) => Expr::Identifier(self.get(&t), s),
+            Expr::Lambda(t, arg, body) => {
+                Expr::Lambda(self.get(&t), arg, Box::new(self.substitute(*body)))
+            }
+            Expr::BinLambda(t, arg0, arg1, body) => {
+                Expr::BinLambda(self.get(&t), arg0, arg1, Box::new(self.substitute(*body)))
+            }
+            Expr::App(t, fun, arg) => Expr::App(
+                self.get(&t),
+                Box::new(self.substitute(*fun)),
+                Box::new(self.substitute(*arg)),
+            ),
+            Expr::BinApp(t, fun, arg0, arg1) => Expr::BinApp(
+                self.get(&t),
+                Box::new(self.substitute(*fun)),
+                Box::new(self.substitute(*arg0)),
+                Box::new(self.substitute(*arg1)),
+            ),
+            Expr::Let(t, var, def, body) => Expr::Let(
+                self.get(&t),
+                var,
+                Box::new(self.substitute(*def)),
+                Box::new(self.substitute(*body)),
+            ),
+            Expr::If(t, pred, conseq, alt) => Expr::If(
+                self.get(&t),
+                Box::new(self.substitute(*pred)),
+                Box::new(self.substitute(*conseq)),
+                Box::new(self.substitute(*alt)),
+            ),
+            Expr::Map(t, fun, arr) => Expr::Map(
+                self.get(&t),
+                Box::new(self.substitute(*fun)),
+                Box::new(self.substitute(*arr)),
+            ),
+            Expr::Reduce(t, fun, init, arr) => Expr::Reduce(
+                self.get(&t),
+                Box::new(self.substitute(*fun)),
+                Box::new(self.substitute(*init)),
+                Box::new(self.substitute(*arr)),
+            ),
+            Expr::Scan(t, fun, init, arr) => Expr::Scan(
+                self.get(&t),
+                Box::new(self.substitute(*fun)),
+                Box::new(self.substitute(*init)),
+                Box::new(self.substitute(*arr)),
+            ),
+            Expr::Iota(t, n) => Expr::Iota(self.get(&t), Box::new(self.substitute(*n))),
+            Expr::Pair(t, e1, e2) => Expr::Pair(
+                self.get(&t),
+                Box::new(self.substitute(*e1)),
+                Box::new(self.substitute(*e2)),
+            ),
+            Expr::Fst(t, p) => Expr::Fst(self.get(&t), Box::new(self.substitute(*p))),
+            Expr::Snd(t, p) => Expr::Snd(self.get(&t), Box::new(self.substitute(*p))),
+        }
+    }
+
     fn is_valid_overloading(&self, xs: &Vec<Box<str>>, t: &Type) -> bool {
         match t {
             Type::TypeVar(_, _) => false,
