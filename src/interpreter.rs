@@ -81,24 +81,24 @@ impl PrimitiveTable {
     }
 }
 
-pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Error> {
+pub fn eval(expr: &Expr<Position>, env: &Env, prims: &PrimitiveTable) -> Result<Value, Error> {
     match expr {
-        Expr::BooleanLiteral(v) => Ok(Value::Boolean(*v)),
-        Expr::IntegerLiteral(v) => Ok(Value::Integer(*v)),
-        Expr::FloatLiteral(v) => Ok(Value::Float(*v)),
-        Expr::Identifier(s) => env
+        Expr::BooleanLiteral(_,v) => Ok(Value::Boolean(*v)),
+        Expr::IntegerLiteral(_,v) => Ok(Value::Integer(*v)),
+        Expr::FloatLiteral(_,v) => Ok(Value::Float(*v)),
+        Expr::Identifier(_,s) => env
             .0
             .get(s)
             .ok_or(Error::UndefinedVariableError(s.to_string()))
             .map(|x| x.clone()),
-        Expr::Lambda(arg, body) => Ok(Value::Function(arg.clone(), *body.clone(), env.clone())),
-        Expr::BinLambda(arg0, arg1, body) => Ok(Value::BinaryFunction(
+        Expr::Lambda(_,arg, body) => Ok(Value::Function(arg.clone(), *body.clone(), env.clone())),
+        Expr::BinLambda(_,arg0, arg1, body) => Ok(Value::BinaryFunction(
             arg0.clone(),
             arg1.clone(),
             *body.clone(),
             env.clone(),
         )),
-        Expr::Let(arg, def, body) => {
+        Expr::Let(_,arg, def, body) => {
             let defval = eval(def, env, prims)?;
             let mut local_env = Env::new(); // Create a new local environment
                                             // Add existing environment entries
@@ -109,7 +109,7 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
 
             eval(&body, &local_env, prims)
         }
-        Expr::App(fun, arg) => {
+        Expr::App(_,fun, arg) => {
             match eval(fun, env, prims)? {
                 Value::Function(funarg, funbody, closure) => {
                     let argval = eval(arg, env, prims)?;
@@ -135,7 +135,7 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                 )),
             }
         }
-        Expr::BinApp(fun, arg0, arg1) => {
+        Expr::BinApp(_,fun, arg0, arg1) => {
             match eval(fun, env, prims)? {
                 Value::BinaryFunction(funarg0, funarg1, funbody, closure) => {
                     let arg0val = eval(arg0, env, prims)?;
@@ -164,14 +164,14 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                 )),
             }
         }
-        Expr::If(pred, conseq, alt) => match eval(pred, env, prims)? {
+        Expr::If(_,pred, conseq, alt) => match eval(pred, env, prims)? {
             Value::Boolean(true) => eval(conseq, env, prims),
             Value::Boolean(false) => eval(alt, env, prims),
             _ => Err(Error::RuntimeError(
                 "if statement predicate evaluated to a value of incorrect type".into(),
             )),
         },
-        Expr::Map(fun, arr) => {
+        Expr::Map(_,fun, arr) => {
             match eval(fun, env, prims)? {
                 Value::Function(funarg, funbody, closure) => {
                     match eval(arr, env, prims)? {
@@ -218,7 +218,7 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                 )),
             }
         }
-        Expr::Reduce(fun, init, arr) => {
+        Expr::Reduce(_,fun, init, arr) => {
             match eval(fun, env, prims)? {
                 Value::BinaryFunction(funarg0, funarg1, funbody, closure) => {
                     let initval = eval(init, env, prims)?;
@@ -262,7 +262,7 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                 )),
             }
         }
-        Expr::Scan(fun, init, arr) => {
+        Expr::Scan(_,fun, init, arr) => {
             match eval(fun, env, prims)? {
                 Value::BinaryFunction(funarg0, funarg1, funbody, closure) => {
                     let initval = eval(init, env, prims)?;
@@ -324,7 +324,7 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                 )),
             }
         }
-        Expr::Iota(num) => match eval(num, env, prims)? {
+        Expr::Iota(_,num) => match eval(num, env, prims)? {
             Value::Integer(n) => Ok(Value::Array(
                 (0..n)
                     .map(|i| Value::Integer(i))
@@ -335,19 +335,19 @@ pub fn eval(expr: &Expr, env: &Env, prims: &PrimitiveTable) -> Result<Value, Err
                 "iota argument evaluated to a value of incorrect type".into(),
             )),
         },
-        Expr::Pair(e1, e2) => {
+        Expr::Pair(_,e1, e2) => {
             let v1 = eval(e1, env, prims)?;
             let v2 = eval(e2, env, prims)?;
 
             Ok(Value::Pair(Box::new(v1), Box::new(v2)))
         }
-        Expr::Fst(p) => match eval(p, env, prims)? {
+        Expr::Fst(_,p) => match eval(p, env, prims)? {
             Value::Pair(v1, _) => Ok(*v1),
             _ => Err(Error::RuntimeError(
                 "fst argument evaluated to a value of incorrect type".into(),
             )),
         },
-        Expr::Snd(p) => match eval(p, env, prims)? {
+        Expr::Snd(_,p) => match eval(p, env, prims)? {
             Value::Pair(_, v2) => Ok(*v2),
             _ => Err(Error::RuntimeError(
                 "snd argument evaluated to a value of incorrect type".into(),

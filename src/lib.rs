@@ -6,10 +6,10 @@ pub mod stdlib;
 pub mod types;
 
 use crate::error::Error;
-use crate::parser::{sexpr::parser::SExprs, Program, Statement};
+use crate::parser::{sexpr::parser::SExprs, sexpr::lexer::Position, Program, Statement};
 
 pub fn run(src: &str) -> Result<(), Error> {
-    let prog: Program = src.parse::<SExprs>()?.try_into()?;
+    let prog: Program<Position> = src.parse::<SExprs>()?.try_into()?;
 
     let c = compiler::compile(&prog)?;
 
@@ -50,7 +50,7 @@ pub fn repl() -> Result<(), Error> {
                         }
                     }
                 }
-                Ok(Statement::Definition(var, def)) => {
+                Ok(Statement::Definition(_, var, def)) => {
                     sub.clear();
                     match sub.reconstruct(&def, &type_env) {
                         Ok(t) => {
