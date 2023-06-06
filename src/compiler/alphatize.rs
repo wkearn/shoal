@@ -18,23 +18,23 @@ impl Alphatizer {
         format!("?a{}", self.fresh_vars).into()
     }
 
-    pub fn alphatize<T>(
+    pub fn alphatize<T: Clone>(
         &mut self,
         expr: &Expr<T>,
         env: &HashMap<Box<str>, Box<str>>,
     ) -> Result<Expr<T>, Error> {
         match expr {
-            Expr::BooleanLiteral(v) => Ok(Expr::BooleanLiteral(v.clone())),
-            Expr::IntegerLiteral(v) => Ok(Expr::IntegerLiteral(v.clone())),
-            Expr::FloatLiteral(v) => Ok(Expr::FloatLiteral(v.clone())),
-            Expr::Identifier(s) => {
+            Expr::BooleanLiteral(tag,v) => Ok(Expr::BooleanLiteral(tag.clone(),v.clone())),
+            Expr::IntegerLiteral(tag,v) => Ok(Expr::IntegerLiteral(tag.clone(),v.clone())),
+            Expr::FloatLiteral(tag,v) => Ok(Expr::FloatLiteral(tag.clone(),v.clone())),
+            Expr::Identifier(tag,s) => {
                 // Look up the identifier in the environment
                 // If it is found, substitute it, otherwise leave it as is
-                env.get(s).map_or(Ok(Expr::Identifier(s.clone())), |v| {
-                    Ok(Expr::Identifier(v.clone()))
+                env.get(s).map_or(Ok(Expr::Identifier(tag.clone(),s.clone())), |v| {
+                    Ok(Expr::Identifier(tag.clone(),v.clone()))
                 })
             }
-            Expr::Lambda(arg, body) => {
+            Expr::Lambda(tag,arg, body) => {
                 let t0 = self.gensym();
                 let new_body = {
                     let mut local_env = HashMap::new(); // Create a new local environment
@@ -44,9 +44,9 @@ impl Alphatizer {
                     self.alphatize(body, &local_env)
                 }?;
 
-                Ok(Expr::Lambda(t0, Box::new(new_body)))
+                Ok(Expr::Lambda(tag.clone(),t0, Box::new(new_body)))
             }
-            Expr::BinLambda(arg0, arg1, body) => {
+            Expr::BinLambda(tag,arg0, arg1, body) => {
                 let t0 = self.gensym();
                 let t1 = self.gensym();
                 let new_body = {
@@ -58,18 +58,20 @@ impl Alphatizer {
                     self.alphatize(body, &local_env)
                 }?;
 
-                Ok(Expr::BinLambda(t0, t1, Box::new(new_body)))
+                Ok(Expr::BinLambda(tag.clone(),t0, t1, Box::new(new_body)))
             }
-            Expr::App(fun, arg) => Ok(Expr::App(
+            Expr::App(tag, fun, arg) => Ok(Expr::App(
+		tag.clone(),
                 Box::new(self.alphatize(fun, env)?),
                 Box::new(self.alphatize(arg, env)?),
             )),
-            Expr::BinApp(fun, arg0, arg1) => Ok(Expr::BinApp(
+            Expr::BinApp(tag, fun, arg0, arg1) => Ok(Expr::BinApp(
+		tag.clone(),
                 Box::new(self.alphatize(fun, env)?),
                 Box::new(self.alphatize(arg0, env)?),
                 Box::new(self.alphatize(arg1, env)?),
             )),
-            Expr::Let(arg, def, body) => {
+            Expr::Let(tag, arg, def, body) => {
                 let t0 = self.gensym();
                 let new_def = self.alphatize(def, env)?;
                 let new_body = {
@@ -80,34 +82,39 @@ impl Alphatizer {
                     self.alphatize(body, &local_env)
                 }?;
 
-                Ok(Expr::Let(t0, Box::new(new_def), Box::new(new_body)))
+                Ok(Expr::Let(tag.clone(), t0, Box::new(new_def), Box::new(new_body)))
             }
-            Expr::If(pred, conseq, alt) => Ok(Expr::If(
+            Expr::If(tag,pred, conseq, alt) => Ok(Expr::If(
+		tag.clone(),
                 Box::new(self.alphatize(pred, env)?),
                 Box::new(self.alphatize(conseq, env)?),
                 Box::new(self.alphatize(alt, env)?),
             )),
-            Expr::Map(fun, arr) => Ok(Expr::Map(
+            Expr::Map(tag, fun, arr) => Ok(Expr::Map(
+		tag.clone(),
                 Box::new(self.alphatize(fun, env)?),
                 Box::new(self.alphatize(arr, env)?),
             )),
-            Expr::Reduce(fun, init, arr) => Ok(Expr::Reduce(
-                Box::new(self.alphatize(fun, env)?),
-                Box::new(self.alphatize(init, env)?),
-                Box::new(self.alphatize(arr, env)?),
-            )),
-            Expr::Scan(fun, init, arr) => Ok(Expr::Scan(
+            Expr::Reduce(tag,fun, init, arr) => Ok(Expr::Reduce(
+		tag.clone(),
                 Box::new(self.alphatize(fun, env)?),
                 Box::new(self.alphatize(init, env)?),
                 Box::new(self.alphatize(arr, env)?),
             )),
-            Expr::Iota(n) => Ok(Expr::Iota(Box::new(self.alphatize(n, env)?))),
-            Expr::Pair(e1, e2) => Ok(Expr::Pair(
+            Expr::Scan(tag,fun, init, arr) => Ok(Expr::Scan(
+		tag.clone(),
+                Box::new(self.alphatize(fun, env)?),
+                Box::new(self.alphatize(init, env)?),
+                Box::new(self.alphatize(arr, env)?),
+            )),
+            Expr::Iota(tag, n) => Ok(Expr::Iota(tag.clone(), Box::new(self.alphatize(n, env)?))),
+            Expr::Pair(tag, e1, e2) => Ok(Expr::Pair(
+		tag.clone(),
                 Box::new(self.alphatize(e1, env)?),
                 Box::new(self.alphatize(e2, env)?),
             )),
-            Expr::Fst(e) => Ok(Expr::Fst(Box::new(self.alphatize(e, env)?))),
-            Expr::Snd(e) => Ok(Expr::Snd(Box::new(self.alphatize(e, env)?))),
+            Expr::Fst(tag, e) => Ok(Expr::Fst(tag.clone(), Box::new(self.alphatize(e, env)?))),
+            Expr::Snd(tag, e) => Ok(Expr::Snd(tag.clone(), Box::new(self.alphatize(e, env)?))),
         }
     }
 }
