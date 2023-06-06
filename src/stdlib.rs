@@ -16,17 +16,17 @@ fn define_comparison_operator(
     op: &str,
     ts: Vec<Box<str>>,
 ) {
-    let t: Box<str> = "?S0".into();
+    let t = 0;
     let ops: Vec<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
-    hs.push(Type::TypeVar(t.clone(), ops.clone()));
+    hs.push(Type::TypeVar(t, ops.clone()));
     type_env.insert(
         op.into(),
         TypeScheme::QuantifiedType(
             hs,
             Type::BinaryFunction(
-                Box::new(Type::TypeVar(t.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+                Box::new(Type::TypeVar(t, ops.clone())),
+                Box::new(Type::TypeVar(t, ops.clone())),
                 Box::new(Type::Boolean),
             ),
         ),
@@ -47,18 +47,18 @@ fn define_binary_operator(
     op: &str,
     ts: Vec<Box<str>>,
 ) {
-    let t: Box<str> = "?S0".into();
+    let t = 0;
     let ops: Vec<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
-    hs.push(Type::TypeVar(t.clone(), ops.clone()));
+    hs.push(Type::TypeVar(t, ops.clone()));
     type_env.insert(
         op.into(),
         TypeScheme::QuantifiedType(
             hs,
             Type::BinaryFunction(
-                Box::new(Type::TypeVar(t.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+                Box::new(Type::TypeVar(t, ops.clone())),
+                Box::new(Type::TypeVar(t, ops.clone())),
+                Box::new(Type::TypeVar(t, ops.clone())),
             ),
         ),
     );
@@ -78,17 +78,17 @@ fn define_unary_operator(
     op: &str,
     ts: Vec<Box<str>>,
 ) {
-    let t: Box<str> = "?S0".into();
+    let t = 0;
     let ops: Vec<Box<str>> = Some(op.into()).into_iter().collect();
     let mut hs = Vec::new();
-    hs.push(Type::TypeVar(t.clone(), ops.clone()));
+    hs.push(Type::TypeVar(t, ops.clone()));
     type_env.insert(
         op.into(),
         TypeScheme::QuantifiedType(
             hs,
             Type::Function(
-                Box::new(Type::TypeVar(t.clone(), ops.clone())),
-                Box::new(Type::TypeVar(t.clone(), ops.clone())),
+                Box::new(Type::TypeVar(t, ops.clone())),
+                Box::new(Type::TypeVar(t, ops.clone())),
             ),
         ),
     );

@@ -13,7 +13,7 @@ pub enum Type {
     Integer,
     Float32,
     Float64,
-    TypeVar(Box<str>, Vec<Box<str>>),
+    TypeVar(u32, Vec<Box<str>>),
     Function(Box<Type>, Box<Type>),
     BinaryFunction(Box<Type>, Box<Type>, Box<Type>),
     Array(Box<Type>),
@@ -59,7 +59,7 @@ impl Type {
         }
     }
 
-    fn free_vars(&self) -> HashMap<Box<str>, Vec<Box<str>>> {
+    fn free_vars(&self) -> HashMap<u32, Vec<Box<str>>> {
         match self {
             Type::Boolean => HashMap::new(),
             Type::Integer => HashMap::new(),
@@ -132,12 +132,12 @@ impl std::fmt::Display for TypeScheme {
 }
 
 impl TypeScheme {
-    fn free_vars(&self) -> HashMap<Box<str>, Vec<Box<str>>> {
+    fn free_vars(&self) -> HashMap<u32, Vec<Box<str>>> {
         match self {
             TypeScheme::PlainType(t) => t.free_vars(),
             TypeScheme::QuantifiedType(fvs, t) => {
                 let mut tvs = t.free_vars();
-                let qts: HashMap<Box<str>, Vec<Box<str>>> = fvs
+                let qts: HashMap<u32, Vec<Box<str>>> = fvs
                     .iter()
                     .cloned()
                     .filter_map(|t| match t {
@@ -163,7 +163,7 @@ impl TypeEnv {
         Self::default()
     }
 
-    fn free_vars(&self) -> HashMap<Box<str>, Vec<Box<str>>> {
+    fn free_vars(&self) -> HashMap<u32, Vec<Box<str>>> {
         let mut fvs = HashMap::new();
         for t in self.0.values() {
             fvs.extend(t.free_vars().into_iter());
@@ -180,7 +180,7 @@ impl TypeEnv {
 #[derive(Debug, Default)]
 pub struct TypeSubstitution {
     fresh_vars: u32,
-    substitution: HashMap<Box<str>, Type>,
+    substitution: HashMap<u32, Type>,
     overloads: HashMap<Box<str>, Vec<Box<str>>>,
 }
 
@@ -207,10 +207,9 @@ impl TypeSubstitution {
         I: IntoIterator<Item = Box<str>>,
     {
         self.fresh_vars += 1;
-        let s = format!("?X{}", self.fresh_vars);
 
         let ops_hs = ops.into_iter().collect();
-        Type::TypeVar(s.into(), ops_hs)
+        Type::TypeVar(self.fresh_vars, ops_hs)
     }
 
     pub fn insert_overload(&mut self, k: Box<str>, v: Vec<Box<str>>) -> Option<Vec<Box<str>>> {
