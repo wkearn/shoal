@@ -123,10 +123,9 @@ impl<T> std::fmt::Display for Expr<T> {
     }
 }
 
-impl Expr<Position> {
-
-    pub fn tag<T>(expr: &Expr<T>) -> &T {
-	match expr {
+impl<T> Expr<T> {
+    pub fn tag(&self) -> &T {
+	match self {
 	    Expr::BooleanLiteral(tag, _) => tag,
 	    Expr::IntegerLiteral(tag, _) => tag,
 	    Expr::FloatLiteral(tag, _) => tag,
@@ -146,7 +145,9 @@ impl Expr<Position> {
 	    Expr::Snd(tag, _) => tag,
 	}
     }
-    
+}
+
+impl Expr<Position> {   
     pub fn parse(sexpr: &SExpr) -> Result<Self, Error> {
         match sexpr {
             SExpr::Boolean(v, start_pos, _) => {
