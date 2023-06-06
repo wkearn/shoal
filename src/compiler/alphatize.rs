@@ -18,11 +18,11 @@ impl Alphatizer {
         format!("?a{}", self.fresh_vars).into()
     }
 
-    pub fn alphatize(
+    pub fn alphatize<T>(
         &mut self,
-        expr: &Expr,
+        expr: &Expr<T>,
         env: &HashMap<Box<str>, Box<str>>,
-    ) -> Result<Expr, Error> {
+    ) -> Result<Expr<T>, Error> {
         match expr {
             Expr::BooleanLiteral(v) => Ok(Expr::BooleanLiteral(v.clone())),
             Expr::IntegerLiteral(v) => Ok(Expr::IntegerLiteral(v.clone())),

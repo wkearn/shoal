@@ -13,16 +13,16 @@ pub enum AtomicExpr {
     BinLambda(Box<str>, Box<str>, Box<NormalExpr>),
 }
 
-impl From<AtomicExpr> for Expr {
+impl From<AtomicExpr> for Expr<()> {
     fn from(atomic: AtomicExpr) -> Self {
         match atomic {
-            AtomicExpr::BooleanLiteral(v) => Expr::BooleanLiteral(v),
-            AtomicExpr::IntegerLiteral(v) => Expr::IntegerLiteral(v),
-            AtomicExpr::FloatLiteral(v) => Expr::FloatLiteral(v),
-            AtomicExpr::Identifier(s) => Expr::Identifier(s),
-            AtomicExpr::Lambda(arg, body) => Expr::Lambda(arg, Box::new(Expr::from(*body))),
+            AtomicExpr::BooleanLiteral(v) => Expr::BooleanLiteral((),v),
+            AtomicExpr::IntegerLiteral(v) => Expr::IntegerLiteral((),v),
+            AtomicExpr::FloatLiteral(v) => Expr::FloatLiteral((),v),
+            AtomicExpr::Identifier(s) => Expr::Identifier((),s),
+            AtomicExpr::Lambda(arg, body) => Expr::Lambda((),arg, Box::new(Expr::from(*body))),
             AtomicExpr::BinLambda(arg0, arg1, body) => {
-                Expr::BinLambda(arg0, arg1, Box::new(Expr::from(*body)))
+                Expr::BinLambda((),arg0, arg1, Box::new(Expr::from(*body)))
             }
         }
     }
@@ -42,41 +42,45 @@ pub enum ComplexExpr {
     Snd(Box<AtomicExpr>),
 }
 
-impl From<ComplexExpr> for Expr {
+impl From<ComplexExpr> for Expr<()> {
     fn from(c: ComplexExpr) -> Self {
         match c {
             ComplexExpr::App(fun, arg) => {
-                Expr::App(Box::new(Expr::from(*fun)), Box::new(Expr::from(*arg)))
+                Expr::App((),Box::new(Expr::from(*fun)), Box::new(Expr::from(*arg)))
             }
             ComplexExpr::BinApp(fun, arg0, arg1) => Expr::BinApp(
+		(),
                 Box::new(Expr::from(*fun)),
                 Box::new(Expr::from(*arg0)),
                 Box::new(Expr::from(*arg1)),
             ),
             ComplexExpr::If(pred, conseq, alt) => Expr::If(
+		(),
                 Box::new(Expr::from(*pred)),
                 Box::new(Expr::from(*conseq)),
                 Box::new(Expr::from(*alt)),
             ),
             ComplexExpr::Map(fun, arr) => {
-                Expr::Map(Box::new(Expr::from(*fun)), Box::new(Expr::from(*arr)))
+                Expr::Map((),Box::new(Expr::from(*fun)), Box::new(Expr::from(*arr)))
             }
             ComplexExpr::Reduce(fun, init, arr) => Expr::Reduce(
+		(),
                 Box::new(Expr::from(*fun)),
                 Box::new(Expr::from(*init)),
                 Box::new(Expr::from(*arr)),
             ),
             ComplexExpr::Scan(fun, init, arr) => Expr::Scan(
+		(),
                 Box::new(Expr::from(*fun)),
                 Box::new(Expr::from(*init)),
                 Box::new(Expr::from(*arr)),
             ),
-            ComplexExpr::Iota(n) => Expr::Iota(Box::new(Expr::from(*n))),
+            ComplexExpr::Iota(n) => Expr::Iota((),Box::new(Expr::from(*n))),
             ComplexExpr::Pair(e1, e2) => {
-                Expr::Pair(Box::new(Expr::from(*e1)), Box::new(Expr::from(*e2)))
+                Expr::Pair((),Box::new(Expr::from(*e1)), Box::new(Expr::from(*e2)))
             }
-            ComplexExpr::Fst(p) => Expr::Fst(Box::new(Expr::from(*p))),
-            ComplexExpr::Snd(p) => Expr::Snd(Box::new(Expr::from(*p))),
+            ComplexExpr::Fst(p) => Expr::Fst((),Box::new(Expr::from(*p))),
+            ComplexExpr::Snd(p) => Expr::Snd((),Box::new(Expr::from(*p))),
         }
     }
 }
@@ -88,11 +92,11 @@ pub enum NormalExpr {
     Atomic(AtomicExpr),
 }
 
-impl From<NormalExpr> for Expr {
+impl<T> From<NormalExpr> for Expr<T> {
     fn from(normal: NormalExpr) -> Self {
         match normal {
             NormalExpr::Let(arg, def, body) => {
-                Expr::Let(arg, Box::new(Expr::from(*def)), Box::new(Expr::from(*body)))
+                Expr::Let((),arg, Box::new(Expr::from(*def)), Box::new(Expr::from(*body)))
             }
             NormalExpr::Atomic(a) => Expr::from(a),
             NormalExpr::Complex(c) => Expr::from(c),
@@ -118,13 +122,13 @@ impl ANormalizer {
         format!("?t{}", count).into()
     }
 
-    pub fn normalize_term(&self, expr: &Expr) -> Result<NormalExpr, Error> {
+    pub fn normalize_term<T>(&self, expr: &Expr<T>) -> Result<NormalExpr, Error> {
         self.normalize(expr, &|n| Ok(n))
     }
 
-    fn normalize_name(
+    fn normalize_name<T>(
         &self,
-        expr: &Expr,
+        expr: &Expr<T>,
         k: &dyn Fn(AtomicExpr) -> Result<NormalExpr, Error>,
     ) -> Result<NormalExpr, Error> {
         self.normalize(expr, &|n| match n {
@@ -162,24 +166,24 @@ impl ANormalizer {
         })
     }
 
-    fn normalize(
+    fn normalize<T>(
         &self,
-        expr: &Expr,
+        expr: &Expr<T>,
         k: &dyn Fn(NormalExpr) -> Result<NormalExpr, Error>,
     ) -> Result<NormalExpr, Error> {
         match expr {
-            Expr::BooleanLiteral(v) => k(NormalExpr::Atomic(AtomicExpr::BooleanLiteral(v.clone()))),
-            Expr::IntegerLiteral(v) => k(NormalExpr::Atomic(AtomicExpr::IntegerLiteral(v.clone()))),
-            Expr::FloatLiteral(v) => k(NormalExpr::Atomic(AtomicExpr::FloatLiteral(v.clone()))),
-            Expr::Identifier(s) => k(NormalExpr::Atomic(AtomicExpr::Identifier(s.clone()))),
-            Expr::Lambda(arg, body) => {
+            Expr::BooleanLiteral(tag,v) => k(NormalExpr::Atomic(AtomicExpr::BooleanLiteral(v.clone()))),
+            Expr::IntegerLiteral(tag,v) => k(NormalExpr::Atomic(AtomicExpr::IntegerLiteral(v.clone()))),
+            Expr::FloatLiteral(tag,v) => k(NormalExpr::Atomic(AtomicExpr::FloatLiteral(v.clone()))),
+            Expr::Identifier(tag,s) => k(NormalExpr::Atomic(AtomicExpr::Identifier(s.clone()))),
+            Expr::Lambda(tag,arg, body) => {
                 let new_body = self.normalize_term(body)?;
                 k(NormalExpr::Atomic(AtomicExpr::Lambda(
                     arg.clone(),
                     Box::new(new_body),
                 )))
             }
-            Expr::BinLambda(arg0, arg1, body) => {
+            Expr::BinLambda(tag,arg0, arg1, body) => {
                 let new_body = self.normalize_term(body)?;
                 k(NormalExpr::Atomic(AtomicExpr::BinLambda(
                     arg0.clone(),
@@ -187,7 +191,7 @@ impl ANormalizer {
                     Box::new(new_body),
                 )))
             }
-            Expr::App(fun, arg) => self.normalize_name(fun, &|t0| {
+            Expr::App(tag,fun, arg) => self.normalize_name(fun, &|t0| {
                 self.normalize_name(arg, &|t1| {
                     k(NormalExpr::Complex(ComplexExpr::App(
                         Box::new(t0.clone()),
@@ -195,7 +199,7 @@ impl ANormalizer {
                     )))
                 })
             }),
-            Expr::BinApp(fun, arg0, arg1) => self.normalize_name(fun, &|t0| {
+            Expr::BinApp(tag,fun, arg0, arg1) => self.normalize_name(fun, &|t0| {
                 self.normalize_name(arg0, &|t1| {
                     self.normalize_name(arg1, &|t2| {
                         k(NormalExpr::Complex(ComplexExpr::BinApp(
@@ -206,7 +210,7 @@ impl ANormalizer {
                     })
                 })
             }),
-            Expr::Let(arg, def, body) => self.normalize(def, &|n| {
+            Expr::Let(tag,arg, def, body) => self.normalize(def, &|n| {
                 let new_body = self.normalize(body, k)?;
                 Ok(NormalExpr::Let(
                     arg.clone(),
@@ -214,7 +218,7 @@ impl ANormalizer {
                     Box::new(new_body),
                 ))
             }),
-            Expr::If(pred, conseq, alt) => self.normalize_name(pred, &|t| {
+            Expr::If(tag,pred, conseq, alt) => self.normalize_name(pred, &|t| {
                 let m2 = self.normalize_term(conseq)?;
                 let m3 = self.normalize_term(alt)?;
                 k(NormalExpr::Complex(ComplexExpr::If(
@@ -223,7 +227,7 @@ impl ANormalizer {
                     Box::new(m3),
                 )))
             }),
-            Expr::Map(fun, arr) => self.normalize_name(fun, &|t0| {
+            Expr::Map(tag,fun, arr) => self.normalize_name(fun, &|t0| {
                 self.normalize_name(arr, &|t1| {
                     k(NormalExpr::Complex(ComplexExpr::Map(
                         Box::new(t0.clone()),
@@ -231,7 +235,7 @@ impl ANormalizer {
                     )))
                 })
             }),
-            Expr::Reduce(fun, init, arr) => self.normalize_name(fun, &|t0| {
+            Expr::Reduce(tag,fun, init, arr) => self.normalize_name(fun, &|t0| {
                 self.normalize_name(init, &|t1| {
                     self.normalize_name(arr, &|t2| {
                         k(NormalExpr::Complex(ComplexExpr::Reduce(
@@ -242,7 +246,7 @@ impl ANormalizer {
                     })
                 })
             }),
-            Expr::Scan(fun, init, arr) => self.normalize_name(fun, &|t0| {
+            Expr::Scan(tag,fun, init, arr) => self.normalize_name(fun, &|t0| {
                 self.normalize_name(init, &|t1| {
                     self.normalize_name(arr, &|t2| {
                         k(NormalExpr::Complex(ComplexExpr::Scan(
@@ -253,10 +257,10 @@ impl ANormalizer {
                     })
                 })
             }),
-            Expr::Iota(n) => self.normalize_name(n, &|t0| {
+            Expr::Iota(tag,n) => self.normalize_name(n, &|t0| {
                 k(NormalExpr::Complex(ComplexExpr::Iota(Box::new(t0.clone()))))
             }),
-            Expr::Pair(e1, e2) => self.normalize_name(e1, &|t0| {
+            Expr::Pair(tag,e1, e2) => self.normalize_name(e1, &|t0| {
                 self.normalize_name(e2, &|t1| {
                     k(NormalExpr::Complex(ComplexExpr::Pair(
                         Box::new(t0.clone()),
@@ -264,10 +268,10 @@ impl ANormalizer {
                     )))
                 })
             }),
-            Expr::Fst(e) => self.normalize_name(e, &|t0| {
+            Expr::Fst(tag,e) => self.normalize_name(e, &|t0| {
                 k(NormalExpr::Complex(ComplexExpr::Fst(Box::new(t0.clone()))))
             }),
-            Expr::Snd(e) => self.normalize_name(e, &|t0| {
+            Expr::Snd(tag,e) => self.normalize_name(e, &|t0| {
                 k(NormalExpr::Complex(ComplexExpr::Snd(Box::new(t0.clone()))))
             }),
         }
