@@ -3,7 +3,7 @@
 use crate::error::Error;
 use crate::parser::Expr;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 // TODO: additional numeric types
 /// The set of valid types for a shoal expression
@@ -13,7 +13,7 @@ pub enum Type {
     Integer,
     Float32,
     Float64,
-    TypeVar(Box<str>, HashSet<Box<str>>),
+    TypeVar(Box<str>, Vec<Box<str>>),
     Function(Box<Type>, Box<Type>),
     BinaryFunction(Box<Type>, Box<Type>, Box<Type>),
     Array(Box<Type>),
@@ -59,7 +59,7 @@ impl Type {
         }
     }
 
-    fn free_vars(&self) -> HashMap<Box<str>, HashSet<Box<str>>> {
+    fn free_vars(&self) -> HashMap<Box<str>, Vec<Box<str>>> {
         match self {
             Type::Boolean => HashMap::new(),
             Type::Integer => HashMap::new(),
@@ -132,12 +132,12 @@ impl std::fmt::Display for TypeScheme {
 }
 
 impl TypeScheme {
-    fn free_vars(&self) -> HashMap<Box<str>, HashSet<Box<str>>> {
+    fn free_vars(&self) -> HashMap<Box<str>, Vec<Box<str>>> {
         match self {
             TypeScheme::PlainType(t) => t.free_vars(),
             TypeScheme::QuantifiedType(fvs, t) => {
                 let mut tvs = t.free_vars();
-                let qts: HashMap<Box<str>, HashSet<Box<str>>> = fvs
+                let qts: HashMap<Box<str>, Vec<Box<str>>> = fvs
                     .iter()
                     .cloned()
                     .filter_map(|t| match t {
@@ -163,7 +163,7 @@ impl TypeEnv {
         Self::default()
     }
 
-    fn free_vars(&self) -> HashMap<Box<str>, HashSet<Box<str>>> {
+    fn free_vars(&self) -> HashMap<Box<str>, Vec<Box<str>>> {
         let mut fvs = HashMap::new();
         for t in self.0.values() {
             fvs.extend(t.free_vars().into_iter());
@@ -250,7 +250,7 @@ impl TypeSubstitution {
         }
     }
 
-    fn is_valid_overloading(&self, xs: &HashSet<Box<str>>, t: &Type) -> bool {
+    fn is_valid_overloading(&self, xs: &Vec<Box<str>>, t: &Type) -> bool {
         match t {
             Type::TypeVar(_, _) => false,
             Type::Function(_, _) => xs.is_empty(),
@@ -312,10 +312,18 @@ impl TypeSubstitution {
         }
     }
 
-    fn cs(&mut self, xs: &HashSet<Box<str>>, right: &Type) -> Result<(), Error> {
+    fn cs(&mut self, xs: &Vec<Box<str>>, right: &Type) -> Result<(), Error> {
         match right {
             Type::TypeVar(alpha, ops) => {
-                let beta = self.genvar_with_ops(ops.union(xs).cloned());
+                let mut ops_union = ops.clone();
+
+                for x in xs.iter() {
+                    if !ops_union.contains(x) {
+                        ops_union.push(x.clone())
+                    }
+                }
+
+                let beta = self.genvar_with_ops(ops_union);
                 self.substitution.insert(alpha.clone(), beta);
                 Ok(())
             }
@@ -409,11 +417,11 @@ impl TypeSubstitution {
     }
     pub fn reconstruct<T>(&mut self, expr: &Expr<T>, env: &TypeEnv) -> Result<Expr<Type>, Error> {
         match expr {
-            Expr::BooleanLiteral(_, v) => Ok(Expr::BooleanLiteral(Type::Boolean,v.clone())),
-            Expr::IntegerLiteral(_, v) => Ok(Expr::IntegerLiteral(Type::Integer,v.clone())),
+            Expr::BooleanLiteral(_, v) => Ok(Expr::BooleanLiteral(Type::Boolean, v.clone())),
+            Expr::IntegerLiteral(_, v) => Ok(Expr::IntegerLiteral(Type::Integer, v.clone())),
             Expr::FloatLiteral(_, v) => {
                 // TODO: Literal overloading for Float64/Float32
-                Ok(Expr::FloatLiteral(Type::Float64,v.clone()))
+                Ok(Expr::FloatLiteral(Type::Float64, v.clone()))
             }
             Expr::Identifier(_, s) => {
                 let x = env
@@ -422,7 +430,7 @@ impl TypeSubstitution {
                     .ok_or(Error::UndefinedVariableError(format!("{s}")))?;
 
                 match x {
-                    TypeScheme::PlainType(t) => Ok(Expr::Identifier(t.clone(),s.clone())),
+                    TypeScheme::PlainType(t) => Ok(Expr::Identifier(t.clone(), s.clone())),
                     TypeScheme::QuantifiedType(vs, t) => {
                         let mut local_sub = TypeSubstitution::new();
                         for v in vs {
@@ -439,7 +447,7 @@ impl TypeSubstitution {
                             }
                         }
                         let tt = local_sub.get(t);
-                        Ok(Expr::Identifier(tt,s.clone()))
+                        Ok(Expr::Identifier(tt, s.clone()))
                     }
                 }
             }
@@ -466,8 +474,8 @@ impl TypeSubstitution {
                 let new_arg = self.get(&arg_type);
                 let new_body = self.get(body_expr.tag());
 
-		let tt = Type::Function(Box::new(new_arg), Box::new(new_body));
-                Ok(Expr::Lambda(tt,arg.clone(),Box::new(body_expr)))
+                let tt = Type::Function(Box::new(new_arg), Box::new(new_body));
+                Ok(Expr::Lambda(tt, arg.clone(), Box::new(body_expr)))
             }
             Expr::BinLambda(_, arg0, arg1, body) => {
                 // Extend the local environment
@@ -498,12 +506,17 @@ impl TypeSubstitution {
                 let new_arg1 = self.get(&arg1_type);
                 let new_body = self.get(body_expr.tag());
 
-		let tt = Type::BinaryFunction(
+                let tt = Type::BinaryFunction(
                     Box::new(new_arg0),
                     Box::new(new_arg1),
                     Box::new(new_body),
                 );
-		Ok(Expr::BinLambda(tt,arg0.clone(),arg1.clone(),Box::new(body_expr)))		
+                Ok(Expr::BinLambda(
+                    tt,
+                    arg0.clone(),
+                    arg1.clone(),
+                    Box::new(body_expr),
+                ))
             }
             Expr::Let(_, arg, def, body) => {
                 // Reconstruct the principal type of def
@@ -524,8 +537,13 @@ impl TypeSubstitution {
                     self.reconstruct(body, &local_env)?
                 };
 
-		let tt = self.get(body_expr.tag());
-                Ok(Expr::Let(tt, arg.clone(), Box::new(def_expr), Box::new(body_expr)))
+                let tt = self.get(body_expr.tag());
+                Ok(Expr::Let(
+                    tt,
+                    arg.clone(),
+                    Box::new(def_expr),
+                    Box::new(body_expr),
+                ))
             }
             Expr::App(_, fun, arg) => {
                 // (f:(a -> b) arg: a):b
@@ -538,7 +556,7 @@ impl TypeSubstitution {
 
                 self.unify(ft.tag(), &tt)?;
 
-		let rt = self.get(&rt);
+                let rt = self.get(&rt);
 
                 Ok(Expr::App(rt, Box::new(ft), Box::new(at)))
             }
@@ -549,12 +567,16 @@ impl TypeSubstitution {
 
                 let rt = self.genvar();
 
-                let tt = Type::BinaryFunction(Box::new(at0.tag().clone()), Box::new(at1.tag().clone()), Box::new(rt.clone()));
+                let tt = Type::BinaryFunction(
+                    Box::new(at0.tag().clone()),
+                    Box::new(at1.tag().clone()),
+                    Box::new(rt.clone()),
+                );
 
                 self.unify(ft.tag(), &tt)?;
 
-		let rt = self.get(&rt);
-		Ok(Expr::BinApp(rt, Box::new(ft), Box::new(at0), Box::new(at1)))
+                let rt = self.get(&rt);
+                Ok(Expr::BinApp(rt, Box::new(ft), Box::new(at0), Box::new(at1)))
             }
             Expr::If(_, pred, conseq, alt) => {
                 // Predicate must be a Boolean
@@ -567,8 +589,8 @@ impl TypeSubstitution {
                 self.unify(ct.tag(), at.tag())?;
 
                 // Does it matter whether we return ct or at?
-		let tt = self.get(at.tag());
-		Ok(Expr::If(tt, Box::new(pt), Box::new(ct), Box::new(at)))
+                let tt = self.get(at.tag());
+                Ok(Expr::If(tt, Box::new(pt), Box::new(ct), Box::new(at)))
             }
             Expr::Map(_, fun, arg) => {
                 // map: ∀a b . (a -> b) -> [a] -> [b]
@@ -584,7 +606,11 @@ impl TypeSubstitution {
                 let tt = Type::Function(Box::new(et), Box::new(rt.clone()));
                 self.unify(ft.tag(), &tt)?;
 
-		Ok(Expr::Map(Type::Array(Box::new(self.get(&rt))),Box::new(ft),Box::new(at)))
+                Ok(Expr::Map(
+                    Type::Array(Box::new(self.get(&rt))),
+                    Box::new(ft),
+                    Box::new(at),
+                ))
             }
             Expr::Reduce(_, fun, init, arg) => {
                 // reduce: ∀ a b . (b x a -> b) -> b -> [a] -> b
@@ -606,7 +632,12 @@ impl TypeSubstitution {
                 // it == rt
                 self.unify(it.tag(), &rt)?;
 
-                Ok(Expr::Reduce(self.get(&rt),Box::new(ft),Box::new(it),Box::new(at)))
+                Ok(Expr::Reduce(
+                    self.get(&rt),
+                    Box::new(ft),
+                    Box::new(it),
+                    Box::new(at),
+                ))
             }
             Expr::Scan(_, fun, init, arg) => {
                 // scan: ∀ a b . (b x a -> b) -> b -> [a] -> b
@@ -628,13 +659,21 @@ impl TypeSubstitution {
                 // it == rt
                 self.unify(it.tag(), &rt)?;
 
-                Ok(Expr::Scan(Type::Array(Box::new(self.get(&rt))),Box::new(ft),Box::new(it),Box::new(at)))
+                Ok(Expr::Scan(
+                    Type::Array(Box::new(self.get(&rt))),
+                    Box::new(ft),
+                    Box::new(it),
+                    Box::new(at),
+                ))
             }
             Expr::Iota(_, n) => {
                 let nt = self.reconstruct(n, env)?;
                 self.unify(nt.tag(), &Type::Integer)?;
 
-                Ok(Expr::Iota(Type::Array(Box::new(Type::Integer)),Box::new(nt)))
+                Ok(Expr::Iota(
+                    Type::Array(Box::new(Type::Integer)),
+                    Box::new(nt),
+                ))
             }
             Expr::Pair(_, e1, e2) => {
                 let t1 = self.reconstruct(e1, env)?;
@@ -642,7 +681,7 @@ impl TypeSubstitution {
 
                 let tt = Type::Pair(Box::new(t1.tag().clone()), Box::new(t2.tag().clone()));
 
-                Ok(Expr::Pair(tt,Box::new(t1),Box::new(t2)))
+                Ok(Expr::Pair(tt, Box::new(t1), Box::new(t2)))
             }
             Expr::Fst(_, p) => {
                 let pt = self.reconstruct(p, env)?;
@@ -652,7 +691,7 @@ impl TypeSubstitution {
                 let tt = Type::Pair(Box::new(rt1.clone()), Box::new(rt2));
 
                 self.unify(pt.tag(), &tt)?;
-                Ok(Expr::Fst(self.get(&rt1),Box::new(pt)))
+                Ok(Expr::Fst(self.get(&rt1), Box::new(pt)))
             }
             Expr::Snd(_, p) => {
                 let pt = self.reconstruct(p, env)?;
@@ -662,7 +701,7 @@ impl TypeSubstitution {
                 let tt = Type::Pair(Box::new(rt1), Box::new(rt2.clone()));
 
                 self.unify(pt.tag(), &tt)?;
-                Ok(Expr::Snd(self.get(&rt2),Box::new(pt)))
+                Ok(Expr::Snd(self.get(&rt2), Box::new(pt)))
             }
         }
     }
