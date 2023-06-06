@@ -12,7 +12,7 @@ pub fn compile<T>(_: &Program<T>) -> Result<Program<T>, Error> {
     // Alpha renaming
 
     // A-normalization
-    
+
     Err(Error::CompileError(
         "Compiler pass not yet implemented".into(),
     ))

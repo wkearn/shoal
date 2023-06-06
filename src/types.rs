@@ -409,13 +409,13 @@ impl TypeSubstitution {
     }
     pub fn reconstruct<T>(&mut self, expr: &Expr<T>, env: &TypeEnv) -> Result<Type, Error> {
         match expr {
-            Expr::BooleanLiteral(_,_) => Ok(Type::Boolean),
-            Expr::IntegerLiteral(_,_) => Ok(Type::Integer),
-            Expr::FloatLiteral(_,_) => {
+            Expr::BooleanLiteral(_, _) => Ok(Type::Boolean),
+            Expr::IntegerLiteral(_, _) => Ok(Type::Integer),
+            Expr::FloatLiteral(_, _) => {
                 // TODO: Literal overloading for Float64/Float32
                 Ok(Type::Float64)
             }
-            Expr::Identifier(_,s) => {
+            Expr::Identifier(_, s) => {
                 let x = env
                     .0
                     .get(s)
@@ -443,7 +443,7 @@ impl TypeSubstitution {
                     }
                 }
             }
-            Expr::Lambda(_,arg, body) => {
+            Expr::Lambda(_, arg, body) => {
                 // Extend the local environment
                 let (arg_type, body_type) = {
                     let mut local_env = TypeEnv::new();
@@ -468,7 +468,7 @@ impl TypeSubstitution {
 
                 Ok(Type::Function(Box::new(new_arg), Box::new(new_body)))
             }
-            Expr::BinLambda(_,arg0, arg1, body) => {
+            Expr::BinLambda(_, arg0, arg1, body) => {
                 // Extend the local environment
                 let (arg0_type, arg1_type, body_type) = {
                     let mut local_env = TypeEnv::new();
@@ -503,7 +503,7 @@ impl TypeSubstitution {
                     Box::new(new_body),
                 ))
             }
-            Expr::Let(_,arg, def, body) => {
+            Expr::Let(_, arg, def, body) => {
                 // Reconstruct the principal type of def
                 let t1 = self.reconstruct(def, env)?;
                 let t1 = self.get(&t1);
@@ -524,7 +524,7 @@ impl TypeSubstitution {
 
                 Ok(self.get(&body_type))
             }
-            Expr::App(_,fun, arg) => {
+            Expr::App(_, fun, arg) => {
                 // (f:(a -> b) arg: a):b
                 let ft = self.reconstruct(fun, env)?;
                 let at = self.reconstruct(arg, env)?;
@@ -537,7 +537,7 @@ impl TypeSubstitution {
 
                 Ok(self.get(&rt))
             }
-            Expr::BinApp(_,fun, arg0, arg1) => {
+            Expr::BinApp(_, fun, arg0, arg1) => {
                 let ft = self.reconstruct(fun, env)?;
                 let at0 = self.reconstruct(arg0, env)?;
                 let at1 = self.reconstruct(arg1, env)?;
@@ -550,7 +550,7 @@ impl TypeSubstitution {
 
                 Ok(self.get(&rt))
             }
-            Expr::If(_,pred, conseq, alt) => {
+            Expr::If(_, pred, conseq, alt) => {
                 // Predicate must be a Boolean
                 let pt = self.reconstruct(pred, env)?;
                 self.unify(&pt, &Type::Boolean)?;
@@ -563,7 +563,7 @@ impl TypeSubstitution {
                 // Does it matter whether we return ct or at?
                 Ok(self.get(&at))
             }
-            Expr::Map(_,fun, arg) => {
+            Expr::Map(_, fun, arg) => {
                 // map: ∀a b . (a -> b) -> [a] -> [b]
                 let ft = self.reconstruct(fun, env)?;
                 let at = self.reconstruct(arg, env)?;
@@ -579,7 +579,7 @@ impl TypeSubstitution {
 
                 Ok(Type::Array(Box::new(self.get(&rt))))
             }
-            Expr::Reduce(_,fun, init, arg) => {
+            Expr::Reduce(_, fun, init, arg) => {
                 // reduce: ∀ a b . (b x a -> b) -> b -> [a] -> b
 
                 let ft = self.reconstruct(fun, env)?;
@@ -601,7 +601,7 @@ impl TypeSubstitution {
 
                 Ok(self.get(&rt))
             }
-            Expr::Scan(_,fun, init, arg) => {
+            Expr::Scan(_, fun, init, arg) => {
                 // scan: ∀ a b . (b x a -> b) -> b -> [a] -> b
 
                 let ft = self.reconstruct(fun, env)?;
@@ -623,13 +623,13 @@ impl TypeSubstitution {
 
                 Ok(Type::Array(Box::new(self.get(&rt))))
             }
-            Expr::Iota(_,n) => {
+            Expr::Iota(_, n) => {
                 let nt = self.reconstruct(n, env)?;
                 self.unify(&nt, &Type::Integer)?;
 
                 Ok(Type::Array(Box::new(Type::Integer)))
             }
-            Expr::Pair(_,e1, e2) => {
+            Expr::Pair(_, e1, e2) => {
                 let t1 = self.reconstruct(e1, env)?;
                 let t2 = self.reconstruct(e2, env)?;
 
@@ -637,7 +637,7 @@ impl TypeSubstitution {
 
                 Ok(tt)
             }
-            Expr::Fst(_,p) => {
+            Expr::Fst(_, p) => {
                 let pt = self.reconstruct(p, env)?;
 
                 let rt1 = self.genvar();
@@ -647,7 +647,7 @@ impl TypeSubstitution {
                 self.unify(&pt, &tt)?;
                 Ok(self.get(&rt1))
             }
-            Expr::Snd(_,p) => {
+            Expr::Snd(_, p) => {
                 let pt = self.reconstruct(p, env)?;
 
                 let rt1 = self.genvar();

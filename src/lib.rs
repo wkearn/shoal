@@ -6,7 +6,7 @@ pub mod stdlib;
 pub mod types;
 
 use crate::error::Error;
-use crate::parser::{sexpr::parser::SExprs, sexpr::lexer::Position, Program, Statement};
+use crate::parser::{sexpr::lexer::Position, sexpr::parser::SExprs, Program, Statement};
 
 pub fn run(src: &str) -> Result<(), Error> {
     let prog: Program<Position> = src.parse::<SExprs>()?.try_into()?;
