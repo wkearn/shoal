@@ -29,7 +29,7 @@ impl std::fmt::Display for Type {
             Self::Float64 => write!(f, "Float64"),
             Self::TypeVar(s, ops) => write!(
                 f,
-                "{s}_{{{}}}",
+                "?X{s}_{{{}}}",
                 ops.iter().cloned().collect::<Vec<Box<str>>>().join(","),
             ),
             Self::Function(arg, body) => write!(f, "{arg} -> {body}"),
