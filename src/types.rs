@@ -992,4 +992,14 @@ mod test {
 
         assert_eq!(t.tag(), &Type::Integer);
     }
+
+    #[test]
+    fn overflow_test1() {
+        let expr = Expr::parse(&"((lambda (u v) (- (+ u v) v)) 1.0 2.0)".parse::<SExpr>().unwrap()).unwrap();
+
+        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+
+        assert_eq!(t.tag(), &Type::Float64);
+    }
 }
