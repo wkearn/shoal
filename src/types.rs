@@ -468,9 +468,8 @@ impl TypeSubstitution {
                         }
                         None => {
                             // Substitute the right variable to make sure that it is reduced as far as possible
-                            let new_right = self.get(right);
-                            self.cs(ops, &new_right)?;
-                            self.substitution.insert(x.clone(), new_right);
+                            self.cs(ops, &right)?;
+                            self.substitution.insert(x.clone(), right.clone());
                             Ok(())
                         }
                     }
