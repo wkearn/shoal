@@ -4,6 +4,7 @@ pub mod interpreter;
 pub mod parser;
 pub mod stdlib;
 pub mod types;
+pub mod union_find;
 
 use crate::error::Error;
 use crate::parser::{sexpr::lexer::Position, sexpr::parser::SExprs, Program, Statement};
