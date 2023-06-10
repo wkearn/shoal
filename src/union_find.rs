@@ -67,7 +67,7 @@ impl UnionFind {
             Type::Boolean => format!("Boolean"),
             Type::Integer => format!("Integer"),
             Type::Float32 => format!("Float32"),
-	    Type::Float64 => format!("Float64"),
+            Type::Float64 => format!("Float64"),
             Type::Variable(n) => format!("?X{}", n),
             Type::Array(arr) => format!("[{}]", self.pretty_print(*arr)),
             Type::Pair(p0, p1) => {
@@ -173,21 +173,21 @@ impl UnionFind {
         self.ranks[t.0] = self.ranks[t.0].saturating_add(1);
     }
 
-    pub fn unify_typerefs(&mut self, r1: TypeRef, r2: TypeRef) -> Result<(), Error> {
+    pub fn unify_typerefs(&mut self, r1: TypeRef, r2: TypeRef) -> Result<(), Error> {	
         let mut pairs = Vec::new();
         pairs.push((r1, r2));
 
         while let Some((x, y)) = pairs.pop() {
+	    
             let u = self.find(x);
             let v = self.find(y);
-
             if u == v {
             } else {
                 match (self.get(u), self.get(v)) {
                     (Type::Boolean, Type::Boolean) => {}
                     (Type::Integer, Type::Integer) => {}
                     (Type::Float32, Type::Float32) => {}
-		    (Type::Float64, Type::Float64) => {}
+                    (Type::Float64, Type::Float64) => {}
                     (Type::Array(arr0), Type::Array(arr1)) => {
                         pairs.push((*arr0, *arr1));
                         self.union(u, v);
@@ -216,7 +216,7 @@ impl UnionFind {
                         // the concrete type becomes the parent
                         self.union(v, u)
                     }
-                    (_, Type::Variable(_)) => pairs.push((v, u)),
+                    (_, Type::Variable(_)) => self.union(u, v),
                     (a, b) => return Err(Error::TypeError(format!("{:?} != {:?}", a, b))),
                 }
             }
@@ -296,7 +296,7 @@ impl UnionFind {
 
                     let Some(TypeScheme::PlainType(arg_type)) = local_env.0.remove(arg) else {unreachable!()};
                     (arg_type, body_expr)
-                };
+                };		
                 let new_arg = self.find(arg_type);
                 let new_body = self.find(*body_expr.tag());
 
@@ -423,12 +423,14 @@ impl UnionFind {
                 // at == [et]
                 let et = self.genvar();
                 let aref = self.insert(Type::Array(et));
+
                 self.unify_typerefs(*at.tag(), aref)?;
 
                 // ft == el_type -> rt
                 let rt = self.genvar();
-                let tt = Type::Function(et, rt.clone());
+                let tt = Type::Function(et, rt);
                 let tr = self.insert(tt);
+
                 self.unify_typerefs(*ft.tag(), tr)?;
 
                 let map_type = Type::Array(self.find(rt));
@@ -534,8 +536,8 @@ impl UnionFind {
             Type::Boolean => HashMap::new(),
             Type::Integer => HashMap::new(),
             Type::Float32 => HashMap::new(),
-	    Type::Float64 => HashMap::new(),
-            Type::Variable(n) => {
+            Type::Float64 => HashMap::new(),
+            Type::Variable(_) => {
                 let mut fvs = HashMap::new();
                 fvs.insert(t, ());
                 fvs
@@ -591,9 +593,9 @@ impl UnionFind {
         let mut qts = Vec::new();
         let evs = self.free_env_vars(env);
 
-        for (k,v) in fvs {
+        for (k, _) in fvs {
             if !evs.contains_key(&k) {
-            qts.push(k)
+                qts.push(k)
             }
         }
         TypeScheme::QuantifiedType(qts, t)
@@ -609,7 +611,11 @@ impl UnionFind {
             Some(t) => *t,
             None => {
                 let new_type = match self.get(t) {
-                    Type::Boolean | Type::Integer | Type::Float32 | Type::Float64 | Type::Variable(_) => {
+                    Type::Boolean
+                    | Type::Integer
+                    | Type::Float32
+                    | Type::Float64
+                    | Type::Variable(_) => {
                         // If the type ref resolves to a constant or a variable, but it is not in the substitution,
                         // we just return the old typeref
                         None
@@ -655,9 +661,9 @@ impl UnionFind {
 
 #[cfg(test)]
 mod test {
-    use super::{Type, TypeEnv, UnionFind};
-    use crate::parser::{sexpr::parser::SExpr, Expr};
+    use super::{Type, TypeEnv, TypeScheme, UnionFind};
     use crate::error::Error;
+    use crate::parser::{sexpr::parser::SExpr, Expr};
 
     #[test]
     fn unification_test() {
@@ -728,7 +734,8 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(sub.get(sub.find(*t.tag())), &Type::Float64);
+        let dref = sub.insert(Type::Float64);
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(dref)));
 
         //
         let expr = Expr::parse(&"(if true 1 2)".parse::<SExpr>().unwrap()).unwrap();
@@ -737,7 +744,8 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(sub.get(sub.find(*t.tag())), &Type::Integer);
+        let iref = sub.insert(Type::Integer);
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(iref)));
 
         //
         let expr = Expr::parse(&"(if true false true)".parse::<SExpr>().unwrap()).unwrap();
@@ -746,7 +754,8 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(sub.get(sub.find(*t.tag())), &Type::Boolean);
+        let bref = sub.insert(Type::Boolean);
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(bref)));
 
         //
         let expr = Expr::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
@@ -782,7 +791,8 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(sub.get(sub.find(*t.tag())), &Type::Integer);
+        let iref = sub.insert(Type::Integer);
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(iref)));
 
         let expr = Expr::parse(
             &"(scan (lambda (u v) v) 0 (iota 10))"
@@ -795,39 +805,40 @@ mod test {
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	let iref = sub.insert(Type::Integer);
-        assert_eq!(sub.get(sub.find(*t.tag())), &Type::Array(iref))
+        let iref = sub.insert(Type::Integer);
+        let aref = sub.insert(Type::Array(iref));
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(aref)));
     }
 
     #[test]
     fn test4() {
-        let expr = Expr::parse(
-            &"(map (lambda (x) x) (iota 10))"
-                .parse::<SExpr>()
-                .unwrap(),
-        )
-        .unwrap();
+        let expr =
+            Expr::parse(&"(map (lambda (x) x) (iota 10))".parse::<SExpr>().unwrap()).unwrap();
 
         let mut sub = UnionFind::new();
         let env = TypeEnv::new();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	let bref = sub.insert(Type::Integer);
-	let aref = sub.insert(Type::Array(bref));
-	println!("{:?} {:?}",sub.pretty_print(sub.find(*t.tag())),sub.pretty_print(sub.find(aref)));
-        assert_eq!(sub.get(sub.find(*t.tag())), &Type::Array(bref))
+        let bref = sub.insert(Type::Integer);
+        let aref = sub.insert(Type::Array(bref));
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(aref)));
     }
 
-    /*
     #[test]
     fn test5() {
         // Direct expression
         let expr = Expr::parse(&"(reduce + 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let mut sub = UnionFind::new();
+        let mut env = TypeEnv::new();
+
+        let iref = sub.insert(Type::Integer);
+        let fref = sub.insert(Type::BinaryFunction(iref, iref, iref));
+
+        env.0.insert("+".into(), TypeScheme::PlainType(fref));
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(t.tag(), &Type::Integer);
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(iref)));
 
         // Let expression
         let expr = Expr::parse(
@@ -837,10 +848,16 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let mut sub = UnionFind::new();
+        let mut env = TypeEnv::new();
+
+        let iref = sub.insert(Type::Integer);
+        let fref = sub.insert(Type::BinaryFunction(iref, iref, iref));
+
+        env.0.insert("+".into(), TypeScheme::PlainType(fref));
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(t.tag(), &Type::Integer);
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(iref)));
 
         // Lambda application
         let expr = Expr::parse(
@@ -850,10 +867,16 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let mut sub = UnionFind::new();
+        let mut env = TypeEnv::new();
+
+        let iref = sub.insert(Type::Integer);
+        let fref = sub.insert(Type::BinaryFunction(iref, iref, iref));
+
+        env.0.insert("+".into(), TypeScheme::PlainType(fref));
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(t.tag(), &Type::Integer);
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(iref)));
     }
 
     #[test]
@@ -866,26 +889,53 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let mut sub = UnionFind::new();
+        let mut env = TypeEnv::new();
+
+        let iref = sub.insert(Type::Integer);
+        let fref = sub.insert(Type::BinaryFunction(iref, iref, iref));
+
+        env.0.insert("+".into(), TypeScheme::PlainType(fref));
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(t.tag(), &Type::Array(Box::new(Type::Integer)));
+
+        let aref = sub.insert(Type::Array(iref));
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(aref)));
     }
 
     #[test]
     fn test7() {
         let expr = Expr::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let mut sub = UnionFind::new();
+        let mut env = TypeEnv::new();
+
+        let iref = sub.insert(Type::Integer);
+        let fref = sub.insert(Type::BinaryFunction(iref, iref, iref));
+
+        env.0.insert("+".into(), TypeScheme::PlainType(fref));
 
         let t = sub.reconstruct(&expr, &env).unwrap();
-        assert_eq!(
-            t.tag(),
-            &Type::Function(
-                Box::new(Type::Array(Box::new(Type::Integer))),
-                Box::new(Type::Integer)
-            )
-        );
+
+	match sub.get(sub.find(*t.tag())) {
+	    Type::Function(arg_ref,body_ref) => {
+		match sub.get(sub.find(*arg_ref)) {
+		    Type::Array(el_ref) => {
+			match sub.get(sub.find(*el_ref)) {
+			    Type::Integer => {}
+			    _ => panic!("Expected element type to be integer")
+			}
+		    }
+		    _ => panic!("Expected argument type to be array")
+		}
+
+		match sub.get(sub.find(*body_ref)) {
+		    Type::Integer => {}
+		    _ => panic!("Expected result type to be integer")		    
+		}
+	    }
+	    _ => panic!("Expected function type")
+	}
     }
 
     #[test]
@@ -896,10 +946,14 @@ mod test {
                 .unwrap(),
         )
         .unwrap();
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
-        let t = sub.reconstruct(&expr, &env).unwrap();
 
-        assert_eq!(t.tag(), &Type::Integer);
+        let mut sub = UnionFind::new();
+        let env = TypeEnv::new();
+
+        let t = sub.reconstruct(&expr, &env).unwrap();
+        let iref = sub.insert(Type::Integer);
+
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(iref)));
     }
 
     #[test]
@@ -911,10 +965,17 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let mut sub = UnionFind::new();
+        let mut env = TypeEnv::new();
 
-        assert_eq!(t.tag(), &Type::Float64);
-}
-    */
+        let dref = sub.insert(Type::Float64);
+        let fref = sub.insert(Type::BinaryFunction(dref, dref, dref));
+        env.0.insert("+".into(), TypeScheme::PlainType(fref));
+        env.0.insert("-".into(), TypeScheme::PlainType(fref));
+
+        let t = sub.reconstruct(&expr, &env).unwrap();
+        let dref = sub.insert(Type::Float64);
+
+        assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(dref)));
+    }
 }
