@@ -405,53 +405,26 @@ impl TypeSubstitution {
 
     /// Unify the left and right types in the given substitution
     fn unify(&mut self, left: &Type, right: &Type) -> Result<(), Error> {
-        match left {
-            Type::Boolean => match right {
-                Type::Boolean => Ok(()),
-                Type::TypeVar(_, _) => self.unify(right, left),
-                _ => Err(Error::TypeError(format!("{left} != {right}"))),
-            },
-            Type::Integer => match right {
-                Type::Integer => Ok(()),
-                Type::TypeVar(_, _) => self.unify(right, left),
-                _ => Err(Error::TypeError(format!("{left} != {right}"))),
-            },
-            Type::Float32 => match right {
-                Type::Float32 => Ok(()),
-                Type::TypeVar(_, _) => self.unify(right, left),
-                _ => Err(Error::TypeError(format!("{left} != {right}"))),
-            },
-            Type::Float64 => match right {
-                Type::Float64 => Ok(()),
-                Type::TypeVar(_, _) => self.unify(right, left),
-                _ => Err(Error::TypeError(format!("{left} != {right}"))),
-            },
-            Type::Array(body0) => match right {
-                Type::TypeVar(_, _) => self.unify(right, left),
-                Type::Array(body1) => self.unify(body0, body1),
-                _ => Err(Error::TypeError(format!("{left} != {right}"))),
-            },
-            Type::Pair(t1, t2) => match right {
-                Type::TypeVar(_, _) => self.unify(right, left),
-                Type::Pair(u1, u2) => self.unify(t1, u1).and_then(|_| self.unify(t2, u2)),
-                _ => Err(Error::TypeError(format!("{left} != {right}"))),
-            },
-            Type::Function(arg0, body0) => match right {
-                Type::TypeVar(_, _) => self.unify(right, left),
-                Type::Function(arg1, body1) => self
-                    .unify(arg0, arg1)
-                    .and_then(|_| self.unify(body0, body1)),
-                _ => Err(Error::TypeError(format!("{left} != {right}"))),
-            },
-            Type::BinaryFunction(arg00, arg01, body0) => match right {
-                Type::TypeVar(_, _) => self.unify(right, left),
-                Type::BinaryFunction(arg10, arg11, body1) => self
-                    .unify(arg00, arg10)
-                    .and_then(|_| self.unify(arg01, arg11))
-                    .and_then(|_| self.unify(body0, body1)),
-                _ => Err(Error::TypeError(format!("{left} != {right}"))),
-            },
-            Type::TypeVar(x, ops) => {
+        match (left, right) {
+            (Type::Boolean, Type::Boolean) => Ok(()),
+            (Type::Integer, Type::Integer) => Ok(()),
+            (Type::Float32, Type::Float32) => Ok(()),
+            (Type::Float64, Type::Float64) => Ok(()),
+            (Type::Array(body0), Type::Array(body1)) => self.unify(body0, body1),
+            (Type::Pair(t1, t2), Type::Pair(u1, u2)) => {
+                self.unify(t1, u1).and_then(|_| self.unify(t2, u2))
+            }
+            (Type::Function(arg0, body0), Type::Function(arg1, body1)) => self
+                .unify(arg0, arg1)
+                .and_then(|_| self.unify(body0, body1)),
+            (
+                Type::BinaryFunction(arg00, arg01, body0),
+                Type::BinaryFunction(arg10, arg11, body1),
+            ) => self
+                .unify(arg00, arg10)
+                .and_then(|_| self.unify(arg01, arg11))
+                .and_then(|_| self.unify(body0, body1)),
+            (Type::TypeVar(x, ops), _) => {
                 if left == right {
                     Ok(())
                 } else if left.occurs_check(right) {
@@ -475,6 +448,10 @@ impl TypeSubstitution {
                     }
                 }
             }
+            (_, Type::TypeVar(_, _)) => self.unify(right, left),
+            _ => Err(Error::TypeError(format!(
+                "Attempted to unify {left:?} with {right:?}"
+            ))),
         }
     }
     pub fn reconstruct<T>(&mut self, expr: &Expr<T>, env: &TypeEnv) -> Result<Expr<Type>, Error> {
