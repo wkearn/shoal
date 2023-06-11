@@ -173,12 +173,11 @@ impl UnionFind {
         self.ranks[t.0] = self.ranks[t.0].saturating_add(1);
     }
 
-    pub fn unify_typerefs(&mut self, r1: TypeRef, r2: TypeRef) -> Result<(), Error> {	
+    pub fn unify_typerefs(&mut self, r1: TypeRef, r2: TypeRef) -> Result<(), Error> {
         let mut pairs = Vec::new();
         pairs.push((r1, r2));
 
         while let Some((x, y)) = pairs.pop() {
-	    
             let u = self.find(x);
             let v = self.find(y);
             if u == v {
@@ -296,7 +295,7 @@ impl UnionFind {
 
                     let Some(TypeScheme::PlainType(arg_type)) = local_env.0.remove(arg) else {unreachable!()};
                     (arg_type, body_expr)
-                };		
+                };
                 let new_arg = self.find(arg_type);
                 let new_body = self.find(*body_expr.tag());
 
@@ -917,25 +916,23 @@ mod test {
 
         let t = sub.reconstruct(&expr, &env).unwrap();
 
-	match sub.get(sub.find(*t.tag())) {
-	    Type::Function(arg_ref,body_ref) => {
-		match sub.get(sub.find(*arg_ref)) {
-		    Type::Array(el_ref) => {
-			match sub.get(sub.find(*el_ref)) {
-			    Type::Integer => {}
-			    _ => panic!("Expected element type to be integer")
-			}
-		    }
-		    _ => panic!("Expected argument type to be array")
-		}
+        match sub.get(sub.find(*t.tag())) {
+            Type::Function(arg_ref, body_ref) => {
+                match sub.get(sub.find(*arg_ref)) {
+                    Type::Array(el_ref) => match sub.get(sub.find(*el_ref)) {
+                        Type::Integer => {}
+                        _ => panic!("Expected element type to be integer"),
+                    },
+                    _ => panic!("Expected argument type to be array"),
+                }
 
-		match sub.get(sub.find(*body_ref)) {
-		    Type::Integer => {}
-		    _ => panic!("Expected result type to be integer")		    
-		}
-	    }
-	    _ => panic!("Expected function type")
-	}
+                match sub.get(sub.find(*body_ref)) {
+                    Type::Integer => {}
+                    _ => panic!("Expected result type to be integer"),
+                }
+            }
+            _ => panic!("Expected function type"),
+        }
     }
 
     #[test]
@@ -977,5 +974,23 @@ mod test {
         let dref = sub.insert(Type::Float64);
 
         assert_eq!(sub.get(sub.find(*t.tag())), sub.get(sub.find(dref)));
+    }
+
+    #[test]
+    fn recursive_test() {
+        let expr = Expr::parse(
+            &"((lambda (x) (x x)) (lambda (x) (x x)))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let mut sub = UnionFind::new();
+        let env = TypeEnv::new();
+
+        let _t = sub.reconstruct(&expr, &env).unwrap();
+
+        //panic!("{:?}", sub.get(sub.get_root(&Type::Variable(2)).unwrap()));
+        //panic!("{:?}",sub.get(sub.find(*t.tag())));
     }
 }
