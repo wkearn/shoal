@@ -106,6 +106,19 @@ impl Type {
         }
         TypeScheme::QuantifiedType(qts, self)
     }
+
+    fn is_overloaded(&self) -> bool {
+        match self {
+            Type::Boolean | Type::Integer | Type::Float32 | Type::Float64 => false,
+            Type::TypeVar(_, ops) => !ops.is_empty(),
+            Type::Function(fun, arg) => fun.is_overloaded() || arg.is_overloaded(),
+            Type::BinaryFunction(fun, arg0, arg1) => {
+                fun.is_overloaded() || arg0.is_overloaded() || arg1.is_overloaded()
+            }
+            Type::Array(arr) => arr.is_overloaded(),
+            Type::Pair(t1, t2) => t1.is_overloaded() || t2.is_overloaded(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -176,6 +189,15 @@ impl TypeEnv {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct OverloadingEnv(HashMap<Box<str>, Vec<(Type, Expr<Type>)>>);
+
+impl OverloadingEnv {
+    pub fn new(m: HashMap<Box<str>, Vec<(Type, Expr<Type>)>>) -> Self {
+        Self(m)
+    }
+}
+
 /// A type substitution maps type variables to type schemes
 #[derive(Debug, Default)]
 pub struct TypeSubstitution {
@@ -187,6 +209,14 @@ pub struct TypeSubstitution {
 impl TypeSubstitution {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn from_overloads(overloads: HashMap<Box<str>, Vec<Box<str>>>) -> Self {
+        Self {
+            fresh_vars: 0,
+            substitution: HashMap::new(),
+            overloads,
+        }
     }
 
     pub fn clear(&mut self) {
@@ -744,6 +774,159 @@ impl TypeSubstitution {
             }
         }
     }
+
+    fn get_overloading_resolution(
+        &self,
+        func: &str,
+        t: &Type,
+        env: &OverloadingEnv,
+    ) -> Option<Expr<Type>> {
+        let vs = env.0.get(func)?;
+
+        for (sigma, ex) in vs {
+            // Surely there is a better way to figure out
+            // if t is an instance of sigma than unifying and
+            // substituting
+            let mut sub = TypeSubstitution::from_overloads(self.overloads.clone());
+
+            match sub.unify(sigma, t) {
+                Ok(_) => {
+                    if &sub.get(sigma) == t {
+                        return Some(sub.substitute(ex.clone()));
+                    }
+                }
+                Err(_) => {}
+            }
+        }
+        None
+    }
+
+    pub fn resolve_overloading(
+        &self,
+        expr: &Expr<Type>,
+        env: &OverloadingEnv,
+    ) -> Result<Expr<Type>, Error> {
+        match expr {
+            Expr::BooleanLiteral(tag, v) => Ok(Expr::BooleanLiteral(tag.clone(), v.clone())),
+            Expr::IntegerLiteral(tag, v) => Ok(Expr::IntegerLiteral(tag.clone(), v.clone())),
+            Expr::FloatLiteral(tag, v) => Ok(Expr::FloatLiteral(tag.clone(), v.clone())),
+            Expr::Identifier(tag, s) => match self.get_overloading_resolution(s, tag, env) {
+                Some(sub_expr) => self.resolve_overloading(&sub_expr, env),
+                None => Ok(Expr::Identifier(tag.clone(), s.clone())),
+            },
+            Expr::Lambda(tag, arg, body) => {
+                let mut local_env = OverloadingEnv::default();
+                for (id, v) in env.0.iter() {
+                    if id != arg {
+                        local_env.0.insert(id.clone(), v.clone());
+                    }
+                }
+                let new_body = self.resolve_overloading(body, &local_env)?;
+                Ok(Expr::Lambda(tag.clone(), arg.clone(), Box::new(new_body)))
+            }
+            Expr::BinLambda(tag, arg0, arg1, body) => {
+                let mut local_env = OverloadingEnv::default();
+                for (id, v) in env.0.iter() {
+                    if (id != arg0) && (id != arg1) {
+                        local_env.0.insert(id.clone(), v.clone());
+                    }
+                }
+                let new_body = self.resolve_overloading(body, &local_env)?;
+                Ok(Expr::BinLambda(
+                    tag.clone(),
+                    arg0.clone(),
+                    arg1.clone(),
+                    Box::new(new_body),
+                ))
+            }
+            Expr::App(tag, fun, arg) => Ok(Expr::App(
+                tag.clone(),
+                Box::new(self.resolve_overloading(fun, env)?),
+                Box::new(self.resolve_overloading(arg, env)?),
+            )),
+            Expr::BinApp(tag, fun, arg0, arg1) => Ok(Expr::BinApp(
+                tag.clone(),
+                Box::new(self.resolve_overloading(fun, env)?),
+                Box::new(self.resolve_overloading(arg0, env)?),
+                Box::new(self.resolve_overloading(arg1, env)?),
+            )),
+            Expr::Let(tag, var, def, body) => {
+                // sigma is the type assigned to def
+                let sigma = def.tag();
+
+                if sigma.is_overloaded() {
+                    let new_def = self.resolve_overloading(def, env)?;
+
+                    let mut local_env = OverloadingEnv::default();
+
+                    local_env
+                        .0
+                        .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+
+                    local_env
+                        .0
+                        .insert(var.clone(), vec![(sigma.clone(), new_def)]);
+                    self.resolve_overloading(body, &local_env)
+                } else {
+                    let new_def = self.resolve_overloading(def, env)?;
+
+                    let mut local_env = OverloadingEnv::default();
+                    for (id, v) in env.0.iter() {
+                        if id != var {
+                            local_env.0.insert(id.clone(), v.clone());
+                        }
+                    }
+                    let new_body = self.resolve_overloading(body, &local_env)?;
+                    Ok(Expr::Let(
+                        tag.clone(),
+                        var.clone(),
+                        Box::new(new_def),
+                        Box::new(new_body),
+                    ))
+                }
+            }
+            Expr::If(tag, pred, conseq, alt) => Ok(Expr::If(
+                tag.clone(),
+                Box::new(self.resolve_overloading(pred, env)?),
+                Box::new(self.resolve_overloading(conseq, env)?),
+                Box::new(self.resolve_overloading(alt, env)?),
+            )),
+            Expr::Map(tag, fun, arr) => Ok(Expr::Map(
+                tag.clone(),
+                Box::new(self.resolve_overloading(fun, env)?),
+                Box::new(self.resolve_overloading(arr, env)?),
+            )),
+            Expr::Reduce(tag, fun, init, arr) => Ok(Expr::Reduce(
+                tag.clone(),
+                Box::new(self.resolve_overloading(fun, env)?),
+                Box::new(self.resolve_overloading(init, env)?),
+                Box::new(self.resolve_overloading(arr, env)?),
+            )),
+            Expr::Scan(tag, fun, init, arr) => Ok(Expr::Scan(
+                tag.clone(),
+                Box::new(self.resolve_overloading(fun, env)?),
+                Box::new(self.resolve_overloading(init, env)?),
+                Box::new(self.resolve_overloading(arr, env)?),
+            )),
+            Expr::Iota(tag, n) => Ok(Expr::Iota(
+                tag.clone(),
+                Box::new(self.resolve_overloading(n, env)?),
+            )),
+            Expr::Pair(tag, e1, e2) => Ok(Expr::Pair(
+                tag.clone(),
+                Box::new(self.resolve_overloading(e1, env)?),
+                Box::new(self.resolve_overloading(e2, env)?),
+            )),
+            Expr::Fst(tag, p) => Ok(Expr::Fst(
+                tag.clone(),
+                Box::new(self.resolve_overloading(p, env)?),
+            )),
+            Expr::Snd(tag, p) => Ok(Expr::Snd(
+                tag.clone(),
+                Box::new(self.resolve_overloading(p, env)?),
+            )),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -972,11 +1155,237 @@ mod test {
 
     #[test]
     fn overflow_test1() {
-        let expr = Expr::parse(&"((lambda (u v) (- (+ u v) v)) 1.0 2.0)".parse::<SExpr>().unwrap()).unwrap();
+        let expr = Expr::parse(
+            &"((lambda (u v) (- (+ u v) v)) 1.0 2.0)"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, &env).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
+    }
+
+    #[test]
+    fn resolve_test() {
+        let expr = Expr::parse(
+            &"(let ((f (lambda (u v) (+ u v)))) (let ((x (f 1.0 2.0))) (f 1 2)))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let (mut sub, mut env, _, _) = crate::stdlib::initialize();
+        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.substitute(t);
+
+        let mut m: HashMap<Box<str>, Vec<(Type, Expr<Type>)>> = HashMap::new();
+        let vp = vec![
+            (
+                Type::BinaryFunction(
+                    Box::new(Type::Float64),
+                    Box::new(Type::Float64),
+                    Box::new(Type::Float64),
+                ),
+                Expr::Identifier(
+                    Type::BinaryFunction(
+                        Box::new(Type::Float64),
+                        Box::new(Type::Float64),
+                        Box::new(Type::Float64),
+                    ),
+                    "dplus".into(),
+                ),
+            ),
+            (
+                Type::BinaryFunction(
+                    Box::new(Type::Integer),
+                    Box::new(Type::Integer),
+                    Box::new(Type::Integer),
+                ),
+                Expr::Identifier(
+                    Type::BinaryFunction(
+                        Box::new(Type::Integer),
+                        Box::new(Type::Integer),
+                        Box::new(Type::Integer),
+                    ),
+                    "iplus".into(),
+                ),
+            ),
+            (
+                Type::BinaryFunction(
+                    Box::new(Type::Float32),
+                    Box::new(Type::Float32),
+                    Box::new(Type::Float32),
+                ),
+                Expr::Identifier(
+                    Type::BinaryFunction(
+                        Box::new(Type::Float32),
+                        Box::new(Type::Float32),
+                        Box::new(Type::Float32),
+                    ),
+                    "fplus".into(),
+                ),
+            ),
+        ];
+
+        let vm = vec![
+            (
+                Type::BinaryFunction(
+                    Box::new(Type::Float64),
+                    Box::new(Type::Float64),
+                    Box::new(Type::Float64),
+                ),
+                Expr::Identifier(
+                    Type::BinaryFunction(
+                        Box::new(Type::Float64),
+                        Box::new(Type::Float64),
+                        Box::new(Type::Float64),
+                    ),
+                    "dminus".into(),
+                ),
+            ),
+            (
+                Type::BinaryFunction(
+                    Box::new(Type::Integer),
+                    Box::new(Type::Integer),
+                    Box::new(Type::Integer),
+                ),
+                Expr::Identifier(
+                    Type::BinaryFunction(
+                        Box::new(Type::Integer),
+                        Box::new(Type::Integer),
+                        Box::new(Type::Integer),
+                    ),
+                    "iminus".into(),
+                ),
+            ),
+            (
+                Type::BinaryFunction(
+                    Box::new(Type::Float32),
+                    Box::new(Type::Float32),
+                    Box::new(Type::Float32),
+                ),
+                Expr::Identifier(
+                    Type::BinaryFunction(
+                        Box::new(Type::Float32),
+                        Box::new(Type::Float32),
+                        Box::new(Type::Float32),
+                    ),
+                    "fminus".into(),
+                ),
+            ),
+        ];
+
+        m.insert("+".into(), vp);
+        m.insert("-".into(), vm);
+        let overloading_env = OverloadingEnv::new(m);
+
+        let new_expr = sub.resolve_overloading(&t, &overloading_env).unwrap();
+
+        // new_expr should also be well typed in sub:
+        env.insert(
+            "dplus".into(),
+            crate::types::TypeScheme::PlainType(Type::BinaryFunction(
+                Box::new(Type::Float64),
+                Box::new(Type::Float64),
+                Box::new(Type::Float64),
+            )),
+        );
+
+        env.insert(
+            "dminus".into(),
+            crate::types::TypeScheme::PlainType(Type::BinaryFunction(
+                Box::new(Type::Float64),
+                Box::new(Type::Float64),
+                Box::new(Type::Float64),
+            )),
+        );
+
+        env.insert(
+            "iplus".into(),
+            crate::types::TypeScheme::PlainType(Type::BinaryFunction(
+                Box::new(Type::Integer),
+                Box::new(Type::Integer),
+                Box::new(Type::Integer),
+            )),
+        );
+        env.insert(
+            "iminus".into(),
+            crate::types::TypeScheme::PlainType(Type::BinaryFunction(
+                Box::new(Type::Integer),
+                Box::new(Type::Integer),
+                Box::new(Type::Integer),
+            )),
+        );
+
+        env.insert(
+            "fplus".into(),
+            crate::types::TypeScheme::PlainType(Type::BinaryFunction(
+                Box::new(Type::Float32),
+                Box::new(Type::Float32),
+                Box::new(Type::Float32),
+            )),
+        );
+        env.insert(
+            "fminus".into(),
+            crate::types::TypeScheme::PlainType(Type::BinaryFunction(
+                Box::new(Type::Float32),
+                Box::new(Type::Float32),
+                Box::new(Type::Float32),
+            )),
+        );
+        println!("{:?}",sub.reconstruct(&new_expr, &env).unwrap());
+
+        // result should be (let ((x ((lambda (u v) (dplus u v)) 1.0 2.0))) ((lambda (u v) (iplus u v)) 1 2))
+        match new_expr {
+            Expr::Let(Type::Integer, _, def, body) => {
+                match *def {
+                    Expr::BinApp(Type::Float64, _fun, arg0, arg1) => {
+                        if let Expr::FloatLiteral(Type::Float64, _) = *arg0 {
+                        } else {
+                            panic!("Expected float literal")
+                        };
+                        if let Expr::FloatLiteral(Type::Float64, _) = *arg1 {
+                        } else {
+                            panic!("Expected float literal")
+                        };
+                    }
+                    _ => {
+                        panic!("Expected binary function application")
+                    }
+                }
+
+                //((lambda (u v) (iplus u v)) 1 2)
+                match *body {
+                    Expr::BinApp(Type::Integer, fun, arg0, arg1) => {
+                        if let Expr::IntegerLiteral(Type::Integer, 1) = *arg0 {
+                        } else {
+                            panic!("Expected integer literal 1")
+                        };
+                        if let Expr::IntegerLiteral(Type::Integer, 2) = *arg1 {
+                        } else {
+                            panic!("Expected integer literal 2")
+                        };
+                        match *fun {
+                            Expr::BinLambda(
+                                Type::BinaryFunction(_targ0, _targ1, _targ2),
+                                _arg0,
+                                _arg1,
+                                _body,
+                            ) => {}
+                            _ => {
+                                panic!("Expected binary lambda definition")
+                            }
+                        }
+                    }
+                    _ => panic!("Expected binary function application"),
+                }
+            }
+            _ => {
+                panic!("Expected let expression")
+            }	    
+        }
     }
 }
