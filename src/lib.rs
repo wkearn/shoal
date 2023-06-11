@@ -9,6 +9,8 @@ pub mod union_find;
 use crate::error::Error;
 use crate::parser::{sexpr::lexer::Position, sexpr::parser::SExprs, Program, Statement};
 
+use std::rc::Rc;
+
 pub fn run(src: &str) -> Result<(), Error> {
     let prog: Program<Position> = src.parse::<SExprs>()?.try_into()?;
 
@@ -19,7 +21,8 @@ pub fn run(src: &str) -> Result<(), Error> {
 }
 
 pub fn repl() -> Result<(), Error> {
-    let (mut sub, mut type_env, mut env, prims) = stdlib::initialize();
+    let (mut sub, type_env, mut env, prims) = stdlib::initialize();
+    let mut type_env = Rc::new(type_env);
     loop {
         let mut source = String::new();
         match std::io::stdin().read_line(&mut source) {
@@ -34,7 +37,7 @@ pub fn repl() -> Result<(), Error> {
             Ok(ex) => match Statement::parse(&ex) {
                 Ok(Statement::Expression(ast)) => {
                     sub.clear(); // Clear the substitution
-                    match sub.reconstruct(&ast, &type_env) {
+                    match sub.reconstruct(&ast, type_env.clone()) {
                         Ok(t) => {
                             println!("{ast:?}: {}", t.tag());
                             match interpreter::eval(&ast, &env, &prims) {
@@ -53,15 +56,16 @@ pub fn repl() -> Result<(), Error> {
                 }
                 Ok(Statement::Definition(_, var, def)) => {
                     sub.clear();
-                    match sub.reconstruct(&def, &type_env) {
+		    let t = sub.reconstruct(&def,type_env.clone());
+                    match t {
                         Ok(t) => {
                             println!("{def}: {t}");
                             match interpreter::eval(&def, &env, &prims) {
-                                Ok(v) => {
+                                Ok(v) => {				    
                                     println!("{var} = {v}");
-                                    env.insert(var.clone(), v);
-                                    type_env
-                                        .insert(var, types::TypeScheme::PlainType(t.tag().clone()));
+				    env.insert(var.clone(), v);
+                                    Rc::get_mut(&mut type_env).expect("type env has hanging references")
+					.insert(var, types::TypeScheme::PlainType(t.tag().clone()));
                                 }
                                 Err(e) => {
                                     eprintln!("{}", e);

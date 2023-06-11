@@ -295,6 +295,7 @@ pub fn initialize() -> (types::TypeSubstitution, types::TypeEnv, Env, PrimitiveT
 mod test {
     use super::*;
     use crate::parser::{sexpr::parser::SExpr, Expr};
+    use std::rc::Rc;
 
     #[test]
     fn test1() {
@@ -307,7 +308,7 @@ mod test {
 
         let (mut sub, env, _, _) = initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
     }
@@ -323,7 +324,7 @@ mod test {
 
         let (mut sub, env, _, _) = initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
 
@@ -337,7 +338,7 @@ mod test {
 
         let (mut sub, env, _, _) = initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Integer);
 
@@ -351,7 +352,7 @@ mod test {
 
         let (mut sub, env, _, _) = initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
 
@@ -367,7 +368,7 @@ mod test {
 
         // This should throw a TypeError because Boolean is an invalid overloading of +
         let crate::error::Error::TypeError(_) = sub
-	    .reconstruct(&expr, &env)
+	    .reconstruct(&expr, Rc::new(env))
 	    .unwrap_err()
 	else { panic!("Encountered unexpected error type") };
     }
@@ -406,7 +407,7 @@ mod test {
 
         let (mut sub, env, _, _) = initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Boolean);
     }

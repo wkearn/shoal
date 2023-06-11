@@ -5,6 +5,8 @@ use crate::parser::Expr;
 
 use std::collections::HashMap;
 
+use std::rc::Rc;
+
 // TODO: additional numeric types
 /// The set of valid types for a shoal expression
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -169,23 +171,53 @@ impl TypeScheme {
 }
 
 #[derive(Debug, Default)]
-pub struct TypeEnv(HashMap<Box<str>, TypeScheme>);
+pub struct TypeEnv {
+    parent: Option<Rc<TypeEnv>>,
+    env: HashMap<Box<str>, TypeScheme>
+}
 
 impl TypeEnv {
     pub fn new() -> Self {
         Self::default()
     }
 
+    pub fn from_parent(parent: Rc<TypeEnv> ) -> Self {
+	TypeEnv { parent: Some(parent.clone()),
+		  env: HashMap::new() }
+    }
+
     fn free_vars(&self) -> HashMap<u32, Vec<Box<str>>> {
-        let mut fvs = HashMap::new();
-        for t in self.0.values() {
+	let mut fvs = if let Some(parent) = &self.parent {
+	    parent.free_vars()
+	} else {
+	    HashMap::new()
+	};
+        
+        for t in self.env.values() {
             fvs.extend(t.free_vars().into_iter());
         }
         fvs
     }
 
     pub fn insert(&mut self, k: Box<str>, v: TypeScheme) -> Option<TypeScheme> {
-        self.0.insert(k, v)
+        self.env.insert(k, v)
+    }
+
+    pub fn get(&self, s: &str) -> Option<&TypeScheme> {
+	match self.env.get(s) {
+	    Some(t) => Some(t),
+	    None => {
+		if let Some(parent) = &self.parent {
+		    parent.get(s)
+		} else {
+		    None
+		}
+	    }
+	}
+    }
+
+    pub fn remove(&mut self, s: &str) -> Option<TypeScheme> {
+	self.env.remove(s)
     }
 }
 
@@ -484,7 +516,7 @@ impl TypeSubstitution {
             ))),
         }
     }
-    pub fn reconstruct<T>(&mut self, expr: &Expr<T>, env: &TypeEnv) -> Result<Expr<Type>, Error> {
+    pub fn reconstruct<T>(&mut self, expr: &Expr<T>, env: Rc<TypeEnv>) -> Result<Expr<Type>, Error> {
         match expr {
             Expr::BooleanLiteral(_, v) => Ok(Expr::BooleanLiteral(Type::Boolean, v.clone())),
             Expr::IntegerLiteral(_, v) => Ok(Expr::IntegerLiteral(Type::Integer, v.clone())),
@@ -494,7 +526,6 @@ impl TypeSubstitution {
             }
             Expr::Identifier(_, s) => {
                 let x = env
-                    .0
                     .get(s)
                     .ok_or(Error::UndefinedVariableError(format!("{s}")))?;
 
@@ -523,20 +554,18 @@ impl TypeSubstitution {
             Expr::Lambda(_, arg, body) => {
                 // Extend the local environment
                 let (arg_type, body_expr) = {
-                    let mut local_env = TypeEnv::new();
-                    local_env
-                        .0
-                        .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+                    let mut local_env = TypeEnv::from_parent(env);
                     let arg_type = self.genvar();
                     local_env
-                        .0
                         .insert(arg.clone(), TypeScheme::PlainType(arg_type));
 
-                    let body_expr = self.reconstruct(body, &local_env)?;
+		    let local_env = Rc::new(local_env);
+                    let body_expr = self.reconstruct(body, local_env.clone())?;
 
                     // Since we destroy the local environment as soon as we finish reconstructing it,
                     // we can get the generated variable back by removing it from the HashMap.
-                    let Some(TypeScheme::PlainType(arg_type)) = local_env.0.remove(arg) else {unreachable!()};
+		    let mut local_env = Rc::try_unwrap(local_env).expect("local env has hanging references");
+                    let Some(TypeScheme::PlainType(arg_type)) = local_env.remove(arg) else {unreachable!()};
                     (arg_type, body_expr)
                 };
 
@@ -549,25 +578,22 @@ impl TypeSubstitution {
             Expr::BinLambda(_, arg0, arg1, body) => {
                 // Extend the local environment
                 let (arg0_type, arg1_type, body_expr) = {
-                    let mut local_env = TypeEnv::new();
-                    local_env
-                        .0
-                        .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
+                    let mut local_env = TypeEnv::from_parent(env);
                     let arg0_type = self.genvar();
                     let arg1_type = self.genvar();
                     local_env
-                        .0
                         .insert(arg0.clone(), TypeScheme::PlainType(arg0_type));
                     local_env
-                        .0
                         .insert(arg1.clone(), TypeScheme::PlainType(arg1_type));
 
-                    let body_expr = self.reconstruct(body, &local_env)?;
+		    let local_env = Rc::new(local_env);
+                    let body_expr = self.reconstruct(body, local_env.clone())?;
 
                     // Since we destroy the local environment as soon as we finish reconstructing it,
                     // we can get the generated variable back by removing it from the HashMap.
-                    let Some(TypeScheme::PlainType(arg0_type)) = local_env.0.remove(arg0) else {unreachable!()};
-                    let Some(TypeScheme::PlainType(arg1_type)) = local_env.0.remove(arg1) else {unreachable!()};
+		    let mut local_env = Rc::try_unwrap(local_env).expect("local env has hanging references");
+                    let Some(TypeScheme::PlainType(arg0_type)) = local_env.remove(arg0) else {unreachable!()};
+                    let Some(TypeScheme::PlainType(arg1_type)) = local_env.remove(arg1) else {unreachable!()};
                     (arg0_type, arg1_type, body_expr)
                 };
 
@@ -589,21 +615,18 @@ impl TypeSubstitution {
             }
             Expr::Let(_, arg, def, body) => {
                 // Reconstruct the principal type of def
-                let def_expr = self.reconstruct(def, env)?;
+                let def_expr = self.reconstruct(def, env.clone())?;
                 let t1 = self.get(def_expr.tag());
 
                 // Generalize over the free variables in t1
-                let t1 = t1.generalize(env);
+                let t1 = t1.generalize(&env);
 
                 // Extend environment with arg -> t1
                 let body_expr = {
-                    let mut local_env = TypeEnv::new();
-                    local_env
-                        .0
-                        .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
-                    local_env.0.insert(arg.clone(), t1);
+                    let mut local_env = TypeEnv::from_parent(env);
+                    local_env.insert(arg.clone(), t1);
 
-                    self.reconstruct(body, &local_env)?
+                    self.reconstruct(body, Rc::new(local_env))?
                 };
 
                 let tt = self.get(body_expr.tag());
@@ -616,8 +639,8 @@ impl TypeSubstitution {
             }
             Expr::App(_, fun, arg) => {
                 // (f:(a -> b) arg: a):b
-                let ft = self.reconstruct(fun, env)?;
-                let at = self.reconstruct(arg, env)?;
+                let ft = self.reconstruct(fun, env.clone())?;
+                let at = self.reconstruct(arg, env.clone())?;
 
                 let rt = self.genvar();
 
@@ -630,9 +653,9 @@ impl TypeSubstitution {
                 Ok(Expr::App(rt, Box::new(ft), Box::new(at)))
             }
             Expr::BinApp(_, fun, arg0, arg1) => {
-                let ft = self.reconstruct(fun, env)?;
-                let at0 = self.reconstruct(arg0, env)?;
-                let at1 = self.reconstruct(arg1, env)?;
+                let ft = self.reconstruct(fun, env.clone())?;
+                let at0 = self.reconstruct(arg0, env.clone())?;
+                let at1 = self.reconstruct(arg1, env.clone())?;
 
                 let rt = self.genvar();
 
@@ -649,12 +672,12 @@ impl TypeSubstitution {
             }
             Expr::If(_, pred, conseq, alt) => {
                 // Predicate must be a Boolean
-                let pt = self.reconstruct(pred, env)?;
+                let pt = self.reconstruct(pred, env.clone())?;
                 self.unify(pt.tag(), &Type::Boolean)?;
 
                 // Consequent and alternative must have the same type
-                let ct = self.reconstruct(conseq, env)?;
-                let at = self.reconstruct(alt, env)?;
+                let ct = self.reconstruct(conseq, env.clone())?;
+                let at = self.reconstruct(alt, env.clone())?;
                 self.unify(ct.tag(), at.tag())?;
 
                 // Does it matter whether we return ct or at?
@@ -663,8 +686,8 @@ impl TypeSubstitution {
             }
             Expr::Map(_, fun, arg) => {
                 // map: ∀a b . (a -> b) -> [a] -> [b]
-                let ft = self.reconstruct(fun, env)?;
-                let at = self.reconstruct(arg, env)?;
+                let ft = self.reconstruct(fun, env.clone())?;
+                let at = self.reconstruct(arg, env.clone())?;
 
                 // at == [et]
                 let et = self.genvar();
@@ -684,9 +707,9 @@ impl TypeSubstitution {
             Expr::Reduce(_, fun, init, arg) => {
                 // reduce: ∀ a b . (b x a -> b) -> b -> [a] -> b
 
-                let ft = self.reconstruct(fun, env)?;
-                let it = self.reconstruct(init, env)?;
-                let at = self.reconstruct(arg, env)?;
+                let ft = self.reconstruct(fun, env.clone())?;
+                let it = self.reconstruct(init, env.clone())?;
+                let at = self.reconstruct(arg, env.clone())?;
 
                 // at == [et]
                 let et = self.genvar();
@@ -711,9 +734,9 @@ impl TypeSubstitution {
             Expr::Scan(_, fun, init, arg) => {
                 // scan: ∀ a b . (b x a -> b) -> b -> [a] -> b
 
-                let ft = self.reconstruct(fun, env)?;
-                let it = self.reconstruct(init, env)?;
-                let at = self.reconstruct(arg, env)?;
+                let ft = self.reconstruct(fun, env.clone())?;
+                let it = self.reconstruct(init, env.clone())?;
+                let at = self.reconstruct(arg, env.clone())?;
 
                 let et = self.genvar();
 
@@ -745,8 +768,8 @@ impl TypeSubstitution {
                 ))
             }
             Expr::Pair(_, e1, e2) => {
-                let t1 = self.reconstruct(e1, env)?;
-                let t2 = self.reconstruct(e2, env)?;
+                let t1 = self.reconstruct(e1, env.clone())?;
+                let t2 = self.reconstruct(e2, env.clone())?;
 
                 let tt = Type::Pair(Box::new(t1.tag().clone()), Box::new(t2.tag().clone()));
 
@@ -947,7 +970,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
 
@@ -957,7 +980,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Integer);
 
@@ -971,7 +994,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Boolean);
     }
@@ -982,7 +1005,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
 
@@ -991,7 +1014,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Integer);
 
@@ -1000,7 +1023,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Boolean);
 
@@ -1009,7 +1032,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        match sub.reconstruct(&expr, &env).unwrap_err() {
+        match sub.reconstruct(&expr, Rc::new(env)).unwrap_err() {
             Error::TypeError(_) => {}
             _ => panic!("Expected test to throw TypeError"),
         }
@@ -1019,7 +1042,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        match sub.reconstruct(&expr, &env).unwrap_err() {
+        match sub.reconstruct(&expr, Rc::new(env)).unwrap_err() {
             Error::TypeError(_) => {}
             _ => panic!("Expected test to throw TypeError"),
         }
@@ -1036,7 +1059,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Integer);
 
@@ -1049,7 +1072,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Array(Box::new(Type::Integer)))
     }
@@ -1065,7 +1088,7 @@ mod test {
 
         let mut sub = TypeSubstitution::new();
         let env = TypeEnv::new();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Array(Box::new(Type::Boolean)));
     }
@@ -1077,7 +1100,7 @@ mod test {
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(t.tag(), &Type::Integer);
 
         // Let expression
@@ -1090,7 +1113,7 @@ mod test {
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(t.tag(), &Type::Integer);
 
         // Lambda application
@@ -1103,7 +1126,7 @@ mod test {
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(t.tag(), &Type::Integer);
     }
 
@@ -1119,7 +1142,7 @@ mod test {
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(t.tag(), &Type::Array(Box::new(Type::Integer)));
     }
 
@@ -1129,7 +1152,7 @@ mod test {
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
 
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(
             t.tag(),
             &Type::Function(
@@ -1148,7 +1171,7 @@ mod test {
         )
         .unwrap();
         let (mut sub, env, _, _) = crate::stdlib::initialize();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Integer);
     }
@@ -1163,7 +1186,7 @@ mod test {
         .unwrap();
 
         let (mut sub, env, _, _) = crate::stdlib::initialize();
-        let t = sub.reconstruct(&expr, &env).unwrap();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
     }
@@ -1178,8 +1201,6 @@ mod test {
         .unwrap();
 
         let (mut sub, mut env, _, _) = crate::stdlib::initialize();
-        let t = sub.reconstruct(&expr, &env).unwrap();
-        let t = sub.substitute(t);
 
         let mut m: HashMap<Box<str>, Vec<Expr<Type>>> = HashMap::new();
         let vp = vec![
@@ -1240,9 +1261,7 @@ mod test {
         m.insert("-".into(), vm);
         let overloading_env = OverloadingEnv::new(m);
 
-        let new_expr = sub.resolve_overloading(&t, &overloading_env).unwrap();
-
-        // new_expr should also be well typed in sub:
+	        // new_expr should also be well typed in sub:
         env.insert(
             "dplus".into(),
             crate::types::TypeScheme::PlainType(Type::BinaryFunction(
@@ -1294,7 +1313,14 @@ mod test {
                 Box::new(Type::Float32),
             )),
         );
-        println!("{:?}", sub.reconstruct(&new_expr, &env).unwrap());
+
+	let env = Rc::new(env);
+	let t = sub.reconstruct(&expr, env.clone()).unwrap();
+        let t = sub.substitute(t);
+        let new_expr = sub.resolve_overloading(&t, &overloading_env).unwrap();
+
+
+        println!("{:?}", sub.reconstruct(&new_expr, env.clone()).unwrap());
 
         // result should be (let ((x ((lambda (u v) (dplus u v)) 1.0 2.0))) ((lambda (u v) (iplus u v)) 1 2))
         match new_expr {
