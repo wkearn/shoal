@@ -190,10 +190,10 @@ impl TypeEnv {
 }
 
 #[derive(Debug, Default)]
-pub struct OverloadingEnv(HashMap<Box<str>, Vec<(Type, Expr<Type>)>>);
+pub struct OverloadingEnv(HashMap<Box<str>, Vec<Expr<Type>>>);
 
 impl OverloadingEnv {
-    pub fn new(m: HashMap<Box<str>, Vec<(Type, Expr<Type>)>>) -> Self {
+    pub fn new(m: HashMap<Box<str>, Vec<Expr<Type>>>) -> Self {
         Self(m)
     }
 }
@@ -783,11 +783,12 @@ impl TypeSubstitution {
     ) -> Option<Expr<Type>> {
         let vs = env.0.get(func)?;
 
-        for (sigma, ex) in vs {
+        for ex in vs {
             // Surely there is a better way to figure out
             // if t is an instance of sigma than unifying and
             // substituting
             let mut sub = TypeSubstitution::from_overloads(self.overloads.clone());
+            let sigma = ex.tag();
 
             match sub.unify(sigma, t) {
                 Ok(_) => {
@@ -852,9 +853,8 @@ impl TypeSubstitution {
             )),
             Expr::Let(tag, var, def, body) => {
                 // sigma is the type assigned to def
-                let sigma = def.tag();
 
-                if sigma.is_overloaded() {
+                if def.tag().is_overloaded() {
                     let new_def = self.resolve_overloading(def, env)?;
 
                     let mut local_env = OverloadingEnv::default();
@@ -865,7 +865,7 @@ impl TypeSubstitution {
 
                     local_env
                         .0
-                        .insert(var.clone(), vec![(sigma.clone(), new_def)]);
+                        .insert(var.clone(), vec![new_def]);
                     self.resolve_overloading(body, &local_env)
                 } else {
                     let new_def = self.resolve_overloading(def, env)?;
@@ -1181,100 +1181,58 @@ mod test {
         let t = sub.reconstruct(&expr, &env).unwrap();
         let t = sub.substitute(t);
 
-        let mut m: HashMap<Box<str>, Vec<(Type, Expr<Type>)>> = HashMap::new();
+        let mut m: HashMap<Box<str>, Vec<Expr<Type>>> = HashMap::new();
         let vp = vec![
-            (
+            Expr::Identifier(
                 Type::BinaryFunction(
                     Box::new(Type::Float64),
                     Box::new(Type::Float64),
                     Box::new(Type::Float64),
                 ),
-                Expr::Identifier(
-                    Type::BinaryFunction(
-                        Box::new(Type::Float64),
-                        Box::new(Type::Float64),
-                        Box::new(Type::Float64),
-                    ),
-                    "dplus".into(),
-                ),
+                "dplus".into(),
             ),
-            (
+            Expr::Identifier(
                 Type::BinaryFunction(
                     Box::new(Type::Integer),
                     Box::new(Type::Integer),
                     Box::new(Type::Integer),
                 ),
-                Expr::Identifier(
-                    Type::BinaryFunction(
-                        Box::new(Type::Integer),
-                        Box::new(Type::Integer),
-                        Box::new(Type::Integer),
-                    ),
-                    "iplus".into(),
-                ),
+                "iplus".into(),
             ),
-            (
+            Expr::Identifier(
                 Type::BinaryFunction(
                     Box::new(Type::Float32),
                     Box::new(Type::Float32),
                     Box::new(Type::Float32),
                 ),
-                Expr::Identifier(
-                    Type::BinaryFunction(
-                        Box::new(Type::Float32),
-                        Box::new(Type::Float32),
-                        Box::new(Type::Float32),
-                    ),
-                    "fplus".into(),
-                ),
+                "fplus".into(),
             ),
         ];
 
         let vm = vec![
-            (
+            Expr::Identifier(
                 Type::BinaryFunction(
                     Box::new(Type::Float64),
                     Box::new(Type::Float64),
                     Box::new(Type::Float64),
                 ),
-                Expr::Identifier(
-                    Type::BinaryFunction(
-                        Box::new(Type::Float64),
-                        Box::new(Type::Float64),
-                        Box::new(Type::Float64),
-                    ),
-                    "dminus".into(),
-                ),
+                "dminus".into(),
             ),
-            (
+            Expr::Identifier(
                 Type::BinaryFunction(
                     Box::new(Type::Integer),
                     Box::new(Type::Integer),
                     Box::new(Type::Integer),
                 ),
-                Expr::Identifier(
-                    Type::BinaryFunction(
-                        Box::new(Type::Integer),
-                        Box::new(Type::Integer),
-                        Box::new(Type::Integer),
-                    ),
-                    "iminus".into(),
-                ),
+                "iminus".into(),
             ),
-            (
+            Expr::Identifier(
                 Type::BinaryFunction(
                     Box::new(Type::Float32),
                     Box::new(Type::Float32),
                     Box::new(Type::Float32),
                 ),
-                Expr::Identifier(
-                    Type::BinaryFunction(
-                        Box::new(Type::Float32),
-                        Box::new(Type::Float32),
-                        Box::new(Type::Float32),
-                    ),
-                    "fminus".into(),
-                ),
+                "fminus".into(),
             ),
         ];
 
@@ -1336,7 +1294,7 @@ mod test {
                 Box::new(Type::Float32),
             )),
         );
-        println!("{:?}",sub.reconstruct(&new_expr, &env).unwrap());
+        println!("{:?}", sub.reconstruct(&new_expr, &env).unwrap());
 
         // result should be (let ((x ((lambda (u v) (dplus u v)) 1.0 2.0))) ((lambda (u v) (iplus u v)) 1 2))
         match new_expr {
@@ -1385,7 +1343,7 @@ mod test {
             }
             _ => {
                 panic!("Expected let expression")
-            }	    
+            }
         }
     }
 }
