@@ -719,7 +719,7 @@ pub fn initialize() -> (
         &mut overloading_env,
         &mut env,
         &mut prims,
-        numeric::Log,
+        numeric::FromFloating,
         "fromFloating",
         vec!["Float32".into(), "Float64".into()],
         vec![
