@@ -830,7 +830,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, overloading_env, _, _) = initialize();
+        let (mut sub, env, _, _, _) = initialize();
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
