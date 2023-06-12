@@ -2,8 +2,8 @@ pub mod alphatize;
 pub mod anormalizer;
 
 use crate::error::Error;
-use crate::parser::{Expr, Program, Statement};
-use crate::types::{Type, TypeScheme};
+use crate::parser::{Program, Statement};
+use crate::types::Type;
 
 use std::rc::Rc;
 
@@ -39,27 +39,34 @@ pub fn compile<T>(prog: &Program<T>) -> Result<Program<T>, Error> {
     let mut vs = Vec::new();
     // Overloading resolution
     for statement in typed_prog.statements() {
-	match statement {
-	    Statement::Expression(expr) => {
-		let t = sub.resolve_overloading(expr,&overloading_env)?;
-		vs.push(Statement::Expression(t));
-	    }
-	    Statement::Definition(_, var, def) => {
-		if def.tag().is_overloaded() {
-		    let new_def = sub.resolve_overloading(def,&overloading_env)?;
-		    overloading_env.insert(var.clone(),vec![new_def.clone()]);
-		    vs.push(Statement::Definition(new_def.tag().clone(),var.clone(),new_def));
-		} else {
-		    let new_def = sub.resolve_overloading(def,&overloading_env)?;
-		    vs.push(Statement::Definition(new_def.tag().clone(),var.clone(),new_def));
-		}
-		
-	    }
-	}
+        match statement {
+            Statement::Expression(expr) => {
+                let t = sub.resolve_overloading(expr, &overloading_env)?;
+                vs.push(Statement::Expression(t));
+            }
+            Statement::Definition(_, var, def) => {
+                if def.tag().is_overloaded() {
+                    let new_def = sub.resolve_overloading(def, &overloading_env)?;
+                    overloading_env.insert(var.clone(), vec![new_def.clone()]);
+                    vs.push(Statement::Definition(
+                        new_def.tag().clone(),
+                        var.clone(),
+                        new_def,
+                    ));
+                } else {
+                    let new_def = sub.resolve_overloading(def, &overloading_env)?;
+                    vs.push(Statement::Definition(
+                        new_def.tag().clone(),
+                        var.clone(),
+                        new_def,
+                    ));
+                }
+            }
+        }
     }
     let resolved_prog = Program::new(vs);
 
-    println!("{:?}",resolved_prog);
+    println!("{:?}", resolved_prog);
 
     // Alpha renaming
 
