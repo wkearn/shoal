@@ -1227,7 +1227,7 @@ mod test {
     #[test]
     fn resolve_test() {
         let expr = Expr::parse(
-            &"(let ((f (lambda (u v) (+ u v)))) (let ((x (f 1.0 2.0))) (f 1 2)))"
+            &"(let ((f (lambda (u v) (+ u v)))) (let ((x (f (f32tof32 1.0) (f32tof32 2.0)))) (f 1 2)))"
                 .parse::<SExpr>()
                 .unwrap(),
         )
@@ -1315,12 +1315,12 @@ mod test {
         match new_expr {
             Expr::Let(Type::Integer, _, def, body) => {
                 match *def {
-                    Expr::BinApp(Type::Float64, _fun, arg0, arg1) => {
-                        if let Expr::App(Type::Float64, _, _) = *arg0 {
+                    Expr::BinApp(Type::Float32, _fun, arg0, arg1) => {
+                        if let Expr::App(Type::Float32, _, _) = *arg0 {
                         } else {
                             panic!("Expected float literal")
                         };
-                        if let Expr::App(Type::Float64, _, _) = *arg1 {
+                        if let Expr::App(Type::Float32, _, _) = *arg1 {
                         } else {
                             panic!("Expected float literal")
                         };

@@ -744,6 +744,35 @@ pub fn initialize() -> (
 
     env.insert("fromFloating".into(), Value::PrimitiveFunction("fromFloating".into()));
     prims.insert("fromFloating".into(), numeric::FromFloating);
+
+    // f32tof32 converts Float32 to Float32
+    type_env.insert(
+        "f32tof32".into(),
+        TypeScheme::PlainType(
+            Type::Function(
+                Box::new(Type::Float32),
+                Box::new(Type::Float32)
+            ),
+        ),
+    );
+    type_env.insert(
+        "f32tof64".into(),
+        TypeScheme::PlainType(
+            Type::Function(
+                Box::new(Type::Float32),
+                Box::new(Type::Float64)
+            ),
+        ),
+    );
+    type_env.insert(
+        "f64tof64".into(),
+        TypeScheme::PlainType(
+            Type::Function(
+                Box::new(Type::Float64),
+                Box::new(Type::Float64)
+            ),
+        ),
+    );
     
     (sub, type_env, overloading_env, env, prims)
 }
