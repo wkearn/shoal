@@ -695,7 +695,7 @@ impl TypeSubstitution {
 
                 // ft == el_type -> rt
                 let rt = self.genvar();
-                let tt = Type::Function(Box::new(et), Box::new(rt.clone()));
+                let tt = Type::Function(Box::new(self.get(&et)), Box::new(rt.clone()));
                 self.unify(ft.tag(), &tt)?;
 
                 Ok(Expr::Map(
@@ -717,7 +717,7 @@ impl TypeSubstitution {
 
                 let rt = self.genvar();
                 let tt =
-                    Type::BinaryFunction(Box::new(rt.clone()), Box::new(et), Box::new(rt.clone()));
+                    Type::BinaryFunction(Box::new(rt.clone()), Box::new(self.get(&et)), Box::new(rt.clone()));
 
                 // ft == rt x et -> rt
                 self.unify(ft.tag(), &tt)?;
@@ -744,7 +744,7 @@ impl TypeSubstitution {
 
                 let rt = self.genvar();
                 let tt =
-                    Type::BinaryFunction(Box::new(rt.clone()), Box::new(et), Box::new(rt.clone()));
+                    Type::BinaryFunction(Box::new(rt.clone()), Box::new(self.get(&et)), Box::new(rt.clone()));
 
                 // ft == rt x et -> rt
                 self.unify(ft.tag(), &tt)?;
@@ -1371,5 +1371,47 @@ mod test {
                 panic!("Expected let expression")
             }
         }
+    }
+
+    #[test]
+    fn test8() {
+	let expr = Expr::parse(
+            &"(map exp (map (lambda (u) 0.0) (iota 10)))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
+
+	let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
+	let t = sub.substitute(t);
+
+        assert_eq!(t.tag(), &Type::Array(Box::new(Type::Float64)));
+
+	let expr = Expr::parse(
+            &"(reduce (lambda (u v) (exp v)) 0.0 (map (lambda (u) 0.0) (iota 10)))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
+
+	let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
+	let t = sub.substitute(t);
+
+        assert_eq!(t.tag(), &Type::Float64);
+
+	let expr = Expr::parse(
+            &"(scan (lambda (u v) (exp v)) 0.0 (map (lambda (u) 0.0) (iota 10)))"
+                .parse::<SExpr>()
+                .unwrap(),
+        )
+        .unwrap();
+
+	let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
+	let t = sub.substitute(t);
+
+        assert_eq!(t.tag(), &Type::Array(Box::new(Type::Float64)));
     }
 }
