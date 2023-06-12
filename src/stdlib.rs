@@ -713,6 +713,27 @@ pub fn initialize() -> (
         ],
     );
 
+    define_unary_operator(
+        &mut sub,
+        &mut type_env,
+        &mut overloading_env,
+        &mut env,
+        &mut prims,
+        numeric::Log,
+        "fromFloating",
+        vec!["Float32".into(), "Float64".into()],
+        vec![
+            Expr::Identifier(
+                Type::Function(Box::new(Type::Float64), Box::new(Type::Float32)),
+                "fromFloatingf32".into(),
+            ),
+            Expr::Identifier(
+                Type::Function(Box::new(Type::Float64), Box::new(Type::Float64)),
+                "fromFloatingf64".into(),
+            ),
+        ],
+    );
+    
     (sub, type_env, overloading_env, env, prims)
 }
 

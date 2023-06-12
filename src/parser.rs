@@ -165,7 +165,11 @@ impl Expr<Position> {
             SExpr::Integer(v, start_pos, _) => {
                 Ok(Expr::IntegerLiteral(start_pos.clone(), v.clone()))
             }
-            SExpr::Float(v, start_pos, _) => Ok(Expr::FloatLiteral(start_pos.clone(), v.clone())),
+            SExpr::Float(v, start_pos, _) => Ok(Expr::App(
+                start_pos.clone(),
+                Box::new(Expr::Identifier(start_pos.clone(), "fromFloating".into())),
+                Box::new(Expr::FloatLiteral(start_pos.clone(), v.clone())),
+            )),
             SExpr::Atom(s, start_pos, _) => Ok(Expr::Identifier(start_pos.clone(), s.clone())),
             SExpr::List(vs, start_pos, _) => {
                 let head: &SExpr = vs.get(0).ok_or(Error::SyntaxError(format!(

@@ -236,3 +236,22 @@ impl PrimitiveUnaryOp for Tan {
         }
     }
 }
+
+pub struct FromFloating;
+impl PrimitiveOp for FromFloating {
+    fn apply(&self, x: &Value, _: &Value) -> Result<Value, Error> {
+        PrimitiveUnaryOp::apply(self, x)
+    }
+}
+
+impl PrimitiveUnaryOp for FromFloating {
+    fn apply(&self, x: &Value) -> Result<Value, Error> {
+	if let Value::Float(x) = x {
+	    Ok(Value::Float(*x))
+	}  else {
+	    Err(Error::RuntimeError(
+                "Argument to operator were of the wrong type".into(),
+            ))
+	}
+    }
+}

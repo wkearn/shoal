@@ -981,8 +981,7 @@ mod test {
         )
         .unwrap();
 
-        let mut sub = TypeSubstitution::new();
-        let env = TypeEnv::new();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
@@ -1016,8 +1015,7 @@ mod test {
     fn test2() {
         let expr = Expr::parse(&"(if true 1.0 2.0)".parse::<SExpr>().unwrap()).unwrap();
 
-        let mut sub = TypeSubstitution::new();
-        let env = TypeEnv::new();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
@@ -1043,8 +1041,7 @@ mod test {
         //
         let expr = Expr::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
 
-        let mut sub = TypeSubstitution::new();
-        let env = TypeEnv::new();
+	let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         match sub.reconstruct(&expr, Rc::new(env)).unwrap_err() {
             Error::TypeError(_) => {}
             _ => panic!("Expected test to throw TypeError"),
@@ -1053,11 +1050,10 @@ mod test {
         //
         let expr = Expr::parse(&"(if 2.0 1 2)".parse::<SExpr>().unwrap()).unwrap();
 
-        let mut sub = TypeSubstitution::new();
-        let env = TypeEnv::new();
+	let (mut sub, env, _, _, _) = crate::stdlib::initialize();        
         match sub.reconstruct(&expr, Rc::new(env)).unwrap_err() {
             Error::TypeError(_) => {}
-            _ => panic!("Expected test to throw TypeError"),
+            e => panic!("Expected test to throw TypeError, got {e}"),
         }
     }
 
@@ -1268,6 +1264,22 @@ mod test {
             )),
         );
 
+	env.insert(
+            "fromFloatingf32".into(),
+            crate::types::TypeScheme::PlainType(Type::Function(
+                Box::new(Type::Float64),
+                Box::new(Type::Float32),
+            )),
+        );
+
+	env.insert(
+            "fromFloatingf64".into(),
+            crate::types::TypeScheme::PlainType(Type::Function(
+                Box::new(Type::Float64),
+                Box::new(Type::Float64),
+            )),
+        );
+
         let env = Rc::new(env);
         let t = sub.reconstruct(&expr, env.clone()).unwrap();
         let t = sub.substitute(t);
@@ -1280,11 +1292,11 @@ mod test {
             Expr::Let(Type::Integer, _, def, body) => {
                 match *def {
                     Expr::BinApp(Type::Float64, _fun, arg0, arg1) => {
-                        if let Expr::FloatLiteral(Type::Float64, _) = *arg0 {
+                        if let Expr::App(Type::Float64, _, _) = *arg0 {
                         } else {
                             panic!("Expected float literal")
                         };
-                        if let Expr::FloatLiteral(Type::Float64, _) = *arg1 {
+                        if let Expr::App(Type::Float64, _, _) = *arg1 {
                         } else {
                             panic!("Expected float literal")
                         };
