@@ -109,7 +109,7 @@ impl Type {
         TypeScheme::QuantifiedType(qts, self)
     }
 
-    fn is_overloaded(&self) -> bool {
+    pub fn is_overloaded(&self) -> bool {
         match self {
             Type::Boolean | Type::Integer | Type::Float32 | Type::Float64 => false,
             Type::TypeVar(_, ops) => !ops.is_empty(),
