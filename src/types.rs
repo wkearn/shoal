@@ -173,7 +173,7 @@ impl TypeScheme {
 #[derive(Debug, Default)]
 pub struct TypeEnv {
     parent: Option<Rc<TypeEnv>>,
-    env: HashMap<Box<str>, TypeScheme>
+    env: HashMap<Box<str>, TypeScheme>,
 }
 
 impl TypeEnv {
@@ -181,18 +181,20 @@ impl TypeEnv {
         Self::default()
     }
 
-    pub fn from_parent(parent: Rc<TypeEnv> ) -> Self {
-	TypeEnv { parent: Some(parent.clone()),
-		  env: HashMap::new() }
+    pub fn from_parent(parent: Rc<TypeEnv>) -> Self {
+        TypeEnv {
+            parent: Some(parent.clone()),
+            env: HashMap::new(),
+        }
     }
 
     fn free_vars(&self) -> HashMap<u32, Vec<Box<str>>> {
-	let mut fvs = if let Some(parent) = &self.parent {
-	    parent.free_vars()
-	} else {
-	    HashMap::new()
-	};
-        
+        let mut fvs = if let Some(parent) = &self.parent {
+            parent.free_vars()
+        } else {
+            HashMap::new()
+        };
+
         for t in self.env.values() {
             fvs.extend(t.free_vars().into_iter());
         }
@@ -204,20 +206,20 @@ impl TypeEnv {
     }
 
     pub fn get(&self, s: &str) -> Option<&TypeScheme> {
-	match self.env.get(s) {
-	    Some(t) => Some(t),
-	    None => {
-		if let Some(parent) = &self.parent {
-		    parent.get(s)
-		} else {
-		    None
-		}
-	    }
-	}
+        match self.env.get(s) {
+            Some(t) => Some(t),
+            None => {
+                if let Some(parent) = &self.parent {
+                    parent.get(s)
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     pub fn remove(&mut self, s: &str) -> Option<TypeScheme> {
-	self.env.remove(s)
+        self.env.remove(s)
     }
 }
 
@@ -227,6 +229,10 @@ pub struct OverloadingEnv(HashMap<Box<str>, Vec<Expr<Type>>>);
 impl OverloadingEnv {
     pub fn new(m: HashMap<Box<str>, Vec<Expr<Type>>>) -> Self {
         Self(m)
+    }
+
+    pub fn insert(&mut self, k: Box<str>, v: Vec<Expr<Type>>) -> Option<Vec<Expr<Type>>> {
+        self.0.insert(k, v)
     }
 }
 
@@ -516,7 +522,11 @@ impl TypeSubstitution {
             ))),
         }
     }
-    pub fn reconstruct<T>(&mut self, expr: &Expr<T>, env: Rc<TypeEnv>) -> Result<Expr<Type>, Error> {
+    pub fn reconstruct<T>(
+        &mut self,
+        expr: &Expr<T>,
+        env: Rc<TypeEnv>,
+    ) -> Result<Expr<Type>, Error> {
         match expr {
             Expr::BooleanLiteral(_, v) => Ok(Expr::BooleanLiteral(Type::Boolean, v.clone())),
             Expr::IntegerLiteral(_, v) => Ok(Expr::IntegerLiteral(Type::Integer, v.clone())),
@@ -556,15 +566,15 @@ impl TypeSubstitution {
                 let (arg_type, body_expr) = {
                     let mut local_env = TypeEnv::from_parent(env);
                     let arg_type = self.genvar();
-                    local_env
-                        .insert(arg.clone(), TypeScheme::PlainType(arg_type));
+                    local_env.insert(arg.clone(), TypeScheme::PlainType(arg_type));
 
-		    let local_env = Rc::new(local_env);
+                    let local_env = Rc::new(local_env);
                     let body_expr = self.reconstruct(body, local_env.clone())?;
 
                     // Since we destroy the local environment as soon as we finish reconstructing it,
                     // we can get the generated variable back by removing it from the HashMap.
-		    let mut local_env = Rc::try_unwrap(local_env).expect("local env has hanging references");
+                    let mut local_env =
+                        Rc::try_unwrap(local_env).expect("local env has hanging references");
                     let Some(TypeScheme::PlainType(arg_type)) = local_env.remove(arg) else {unreachable!()};
                     (arg_type, body_expr)
                 };
@@ -581,17 +591,16 @@ impl TypeSubstitution {
                     let mut local_env = TypeEnv::from_parent(env);
                     let arg0_type = self.genvar();
                     let arg1_type = self.genvar();
-                    local_env
-                        .insert(arg0.clone(), TypeScheme::PlainType(arg0_type));
-                    local_env
-                        .insert(arg1.clone(), TypeScheme::PlainType(arg1_type));
+                    local_env.insert(arg0.clone(), TypeScheme::PlainType(arg0_type));
+                    local_env.insert(arg1.clone(), TypeScheme::PlainType(arg1_type));
 
-		    let local_env = Rc::new(local_env);
+                    let local_env = Rc::new(local_env);
                     let body_expr = self.reconstruct(body, local_env.clone())?;
 
                     // Since we destroy the local environment as soon as we finish reconstructing it,
                     // we can get the generated variable back by removing it from the HashMap.
-		    let mut local_env = Rc::try_unwrap(local_env).expect("local env has hanging references");
+                    let mut local_env =
+                        Rc::try_unwrap(local_env).expect("local env has hanging references");
                     let Some(TypeScheme::PlainType(arg0_type)) = local_env.remove(arg0) else {unreachable!()};
                     let Some(TypeScheme::PlainType(arg1_type)) = local_env.remove(arg1) else {unreachable!()};
                     (arg0_type, arg1_type, body_expr)
@@ -716,8 +725,11 @@ impl TypeSubstitution {
                 self.unify(at.tag(), &Type::Array(Box::new(et.clone())))?;
 
                 let rt = self.genvar();
-                let tt =
-                    Type::BinaryFunction(Box::new(rt.clone()), Box::new(self.get(&et)), Box::new(rt.clone()));
+                let tt = Type::BinaryFunction(
+                    Box::new(rt.clone()),
+                    Box::new(self.get(&et)),
+                    Box::new(rt.clone()),
+                );
 
                 // ft == rt x et -> rt
                 self.unify(ft.tag(), &tt)?;
@@ -743,8 +755,11 @@ impl TypeSubstitution {
                 self.unify(at.tag(), &Type::Array(Box::new(et.clone())))?;
 
                 let rt = self.genvar();
-                let tt =
-                    Type::BinaryFunction(Box::new(rt.clone()), Box::new(self.get(&et)), Box::new(rt.clone()));
+                let tt = Type::BinaryFunction(
+                    Box::new(rt.clone()),
+                    Box::new(self.get(&et)),
+                    Box::new(rt.clone()),
+                );
 
                 // ft == rt x et -> rt
                 self.unify(ft.tag(), &tt)?;
@@ -886,9 +901,7 @@ impl TypeSubstitution {
                         .0
                         .extend(env.0.iter().map(|(k, v)| (k.clone(), v.clone())));
 
-                    local_env
-                        .0
-                        .insert(var.clone(), vec![new_def]);
+                    local_env.0.insert(var.clone(), vec![new_def]);
                     self.resolve_overloading(body, &local_env)
                 } else {
                     let new_def = self.resolve_overloading(def, env)?;
@@ -1098,7 +1111,7 @@ mod test {
         // Direct expression
         let expr = Expr::parse(&"(reduce + 0 (iota 10))".parse::<SExpr>().unwrap()).unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(t.tag(), &Type::Integer);
@@ -1111,7 +1124,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(t.tag(), &Type::Integer);
@@ -1124,7 +1137,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(t.tag(), &Type::Integer);
@@ -1140,7 +1153,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(t.tag(), &Type::Array(Box::new(Type::Integer)));
@@ -1150,7 +1163,7 @@ mod test {
     fn test7() {
         let expr = Expr::parse(&"(lambda (xs) (reduce + 0 xs))".parse::<SExpr>().unwrap()).unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         assert_eq!(
@@ -1170,7 +1183,7 @@ mod test {
                 .unwrap(),
         )
         .unwrap();
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Integer);
@@ -1185,7 +1198,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
         assert_eq!(t.tag(), &Type::Float64);
@@ -1200,68 +1213,9 @@ mod test {
         )
         .unwrap();
 
-        let (mut sub, mut env, _, _) = crate::stdlib::initialize();
+        let (mut sub, mut env, overloading_env, _, _) = crate::stdlib::initialize();
 
-        let mut m: HashMap<Box<str>, Vec<Expr<Type>>> = HashMap::new();
-        let vp = vec![
-            Expr::Identifier(
-                Type::BinaryFunction(
-                    Box::new(Type::Float64),
-                    Box::new(Type::Float64),
-                    Box::new(Type::Float64),
-                ),
-                "dplus".into(),
-            ),
-            Expr::Identifier(
-                Type::BinaryFunction(
-                    Box::new(Type::Integer),
-                    Box::new(Type::Integer),
-                    Box::new(Type::Integer),
-                ),
-                "iplus".into(),
-            ),
-            Expr::Identifier(
-                Type::BinaryFunction(
-                    Box::new(Type::Float32),
-                    Box::new(Type::Float32),
-                    Box::new(Type::Float32),
-                ),
-                "fplus".into(),
-            ),
-        ];
-
-        let vm = vec![
-            Expr::Identifier(
-                Type::BinaryFunction(
-                    Box::new(Type::Float64),
-                    Box::new(Type::Float64),
-                    Box::new(Type::Float64),
-                ),
-                "dminus".into(),
-            ),
-            Expr::Identifier(
-                Type::BinaryFunction(
-                    Box::new(Type::Integer),
-                    Box::new(Type::Integer),
-                    Box::new(Type::Integer),
-                ),
-                "iminus".into(),
-            ),
-            Expr::Identifier(
-                Type::BinaryFunction(
-                    Box::new(Type::Float32),
-                    Box::new(Type::Float32),
-                    Box::new(Type::Float32),
-                ),
-                "fminus".into(),
-            ),
-        ];
-
-        m.insert("+".into(), vp);
-        m.insert("-".into(), vm);
-        let overloading_env = OverloadingEnv::new(m);
-
-	        // new_expr should also be well typed in sub:
+        // new_expr should also be well typed in sub:
         env.insert(
             "dplus".into(),
             crate::types::TypeScheme::PlainType(Type::BinaryFunction(
@@ -1314,11 +1268,10 @@ mod test {
             )),
         );
 
-	let env = Rc::new(env);
-	let t = sub.reconstruct(&expr, env.clone()).unwrap();
+        let env = Rc::new(env);
+        let t = sub.reconstruct(&expr, env.clone()).unwrap();
         let t = sub.substitute(t);
         let new_expr = sub.resolve_overloading(&t, &overloading_env).unwrap();
-
 
         println!("{:?}", sub.reconstruct(&new_expr, env.clone()).unwrap());
 
@@ -1375,42 +1328,42 @@ mod test {
 
     #[test]
     fn test8() {
-	let expr = Expr::parse(
+        let expr = Expr::parse(
             &"(map exp (map (lambda (u) 0.0) (iota 10)))"
                 .parse::<SExpr>()
                 .unwrap(),
         )
         .unwrap();
 
-	let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
-	let t = sub.substitute(t);
+        let t = sub.substitute(t);
 
         assert_eq!(t.tag(), &Type::Array(Box::new(Type::Float64)));
 
-	let expr = Expr::parse(
+        let expr = Expr::parse(
             &"(reduce (lambda (u v) (exp v)) 0.0 (map (lambda (u) 0.0) (iota 10)))"
                 .parse::<SExpr>()
                 .unwrap(),
         )
         .unwrap();
 
-	let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
-	let t = sub.substitute(t);
+        let t = sub.substitute(t);
 
         assert_eq!(t.tag(), &Type::Float64);
 
-	let expr = Expr::parse(
+        let expr = Expr::parse(
             &"(scan (lambda (u v) (exp v)) 0.0 (map (lambda (u) 0.0) (iota 10)))"
                 .parse::<SExpr>()
                 .unwrap(),
         )
         .unwrap();
 
-	let (mut sub, env, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
-	let t = sub.substitute(t);
+        let t = sub.substitute(t);
 
         assert_eq!(t.tag(), &Type::Array(Box::new(Type::Float64)));
     }

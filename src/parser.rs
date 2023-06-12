@@ -10,6 +10,15 @@ use crate::parser::sexpr::{
 #[derive(Debug)]
 pub struct Program<T>(Vec<Statement<T>>);
 
+impl<T> Program<T> {
+    pub fn new(vs: Vec<Statement<T>>) -> Self {
+        Self(vs)
+    }
+    pub fn statements(&self) -> &Vec<Statement<T>> {
+        &self.0
+    }
+}
+
 impl TryFrom<SExprs> for Program<Position> {
     type Error = Error;
     fn try_from(vs: SExprs) -> Result<Self, Error> {

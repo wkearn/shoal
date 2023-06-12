@@ -21,7 +21,7 @@ pub fn run(src: &str) -> Result<(), Error> {
 }
 
 pub fn repl() -> Result<(), Error> {
-    let (mut sub, type_env, mut env, prims) = stdlib::initialize();
+    let (mut sub, type_env, _overloading_env, mut env, prims) = stdlib::initialize();
     let mut type_env = Rc::new(type_env);
     loop {
         let mut source = String::new();
@@ -56,16 +56,17 @@ pub fn repl() -> Result<(), Error> {
                 }
                 Ok(Statement::Definition(_, var, def)) => {
                     sub.clear();
-		    let t = sub.reconstruct(&def,type_env.clone());
+                    let t = sub.reconstruct(&def, type_env.clone());
                     match t {
                         Ok(t) => {
                             println!("{def}: {t}");
                             match interpreter::eval(&def, &env, &prims) {
-                                Ok(v) => {				    
+                                Ok(v) => {
                                     println!("{var} = {v}");
-				    env.insert(var.clone(), v);
-                                    Rc::get_mut(&mut type_env).expect("type env has hanging references")
-					.insert(var, types::TypeScheme::PlainType(t.tag().clone()));
+                                    env.insert(var.clone(), v);
+                                    Rc::get_mut(&mut type_env)
+                                        .expect("type env has hanging references")
+                                        .insert(var, types::TypeScheme::PlainType(t.tag().clone()));
                                 }
                                 Err(e) => {
                                     eprintln!("{}", e);
