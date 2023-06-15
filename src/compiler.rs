@@ -5,6 +5,7 @@ use crate::error::Error;
 use crate::parser::{Program, Statement};
 use crate::types::Type;
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn compile<T>(prog: &Program<T>) -> Result<Program<T>, Error> {
@@ -66,9 +67,39 @@ pub fn compile<T>(prog: &Program<T>) -> Result<Program<T>, Error> {
     }
     let resolved_prog = Program::new(vs);
 
-    println!("{:?}", resolved_prog);
+    println!(
+        "Resolved prog {}",
+        resolved_prog
+            .statements()
+            .iter()
+            .map(|x| {
+                match x {
+                    Statement::Expression(ex) => ex.to_string(),
+                    Statement::Definition(tag, var, def) => format!("(define {var} {def})"),
+                }
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
 
     // Alpha renaming
+    let mut a1 = alphatize::Alphatizer::new();
+    let renamed_prog = a1.alphatize_program(&resolved_prog);
+
+    println!(
+        "Renamed prog {}",
+        renamed_prog
+            .statements()
+            .iter()
+            .map(|x| {
+                match x {
+                    Statement::Expression(ex) => ex.to_string(),
+                    Statement::Definition(tag, var, def) => format!("(define {var} {def})"),
+                }
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
 
     // A-normalization
 
