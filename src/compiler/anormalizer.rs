@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::parser::Expr;
+use crate::parser::{Expr, Program, Statement};
 
 use std::cell::RefCell;
 
@@ -106,6 +106,16 @@ impl From<NormalExpr> for Expr<()> {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum NormalStatement {
+    Expression(NormalExpr),
+    Define(Box<str>, NormalExpr),
+    Begin(Vec<NormalStatement>),
+}
+
+#[derive(Debug)]
+pub struct NormalProgram(Vec<NormalStatement>);
 
 #[derive(Debug)]
 pub struct ANormalizer {
@@ -282,6 +292,53 @@ impl ANormalizer {
                 k(NormalExpr::Complex(ComplexExpr::Snd(Box::new(t0.clone()))))
             }),
         }
+    }
+
+    fn flatten_top(var: Box<str>, expr: NormalExpr) -> Vec<NormalStatement> {
+        match expr {
+            NormalExpr::Let(x, def, body) => {
+                let mut vs = Vec::new();
+                vs.push(NormalStatement::Define(x, *def));
+                vs.extend(Self::flatten_top(var, *body));
+                vs
+            }
+            _ => {
+                vec![NormalStatement::Define(var, expr)]
+            }
+        }
+    }
+
+    pub fn normalize_statement<T>(
+        &self,
+        statement: &Statement<T>,
+    ) -> Result<NormalStatement, Error> {
+        match statement {
+            Statement::Expression(expr) => {
+                Ok(NormalStatement::Expression(self.normalize_term(expr)?))
+            }
+            Statement::Definition(_, var, body) => {
+                let new_body: NormalExpr = self.normalize_term(body)?;
+                match new_body {
+                    NormalExpr::Let(x, def, body) => {
+                        let mut vs = Vec::new();
+                        vs.push(NormalStatement::Define(x, *def));
+                        vs.extend(Self::flatten_top(var.clone(), *body));
+                        Ok(NormalStatement::Begin(vs))
+                    }
+                    NormalExpr::Atomic(_) | NormalExpr::Complex(_) => {
+                        Ok(NormalStatement::Define(var.clone(), new_body))
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn normalize_program<T>(&self, prog: &Program<T>) -> Result<NormalProgram, Error> {
+        let mut vs = Vec::new();
+        for statement in prog.statements() {
+            vs.push(self.normalize_statement(statement)?)
+        }
+        Ok(NormalProgram(vs))
     }
 }
 

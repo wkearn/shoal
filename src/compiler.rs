@@ -2,11 +2,15 @@ pub mod alphatize;
 pub mod anormalizer;
 
 use crate::error::Error;
-use crate::parser::{Program, Statement};
+use crate::parser::{Expr, Program, Statement};
 use crate::types::Type;
 
 use std::collections::HashMap;
 use std::rc::Rc;
+
+fn let_desugaring<T>(prog: Program<T>) -> Result<Expr<T>, Error> {
+    todo!()
+}
 
 pub fn compile<T>(prog: &Program<T>) -> Result<Program<T>, Error> {
     // Type inference and annotation
@@ -35,73 +39,29 @@ pub fn compile<T>(prog: &Program<T>) -> Result<Program<T>, Error> {
             }
         }
     }
-    let typed_prog: Program<Type> = Program::new(vs);
+    let t = sub.reconstruct(prog.expression(), type_env.clone())?;
+    let t = sub.substitute(t);
+    vs.push(Statement::Expression(t));
+    let typed_prog: Program<Type> = Program::new(vs)?;
 
-    let mut vs = Vec::new();
-    // Overloading resolution
-    for statement in typed_prog.statements() {
-        match statement {
-            Statement::Expression(expr) => {
-                let t = sub.resolve_overloading(expr, &overloading_env)?;
-                vs.push(Statement::Expression(t));
-            }
-            Statement::Definition(_, var, def) => {
-                if def.tag().is_overloaded() {
-                    let new_def = sub.resolve_overloading(def, &overloading_env)?;
-                    overloading_env.insert(var.clone(), vec![new_def.clone()]);
-                    vs.push(Statement::Definition(
-                        new_def.tag().clone(),
-                        var.clone(),
-                        new_def,
-                    ));
-                } else {
-                    let new_def = sub.resolve_overloading(def, &overloading_env)?;
-                    vs.push(Statement::Definition(
-                        new_def.tag().clone(),
-                        var.clone(),
-                        new_def,
-                    ));
-                }
-            }
-        }
-    }
-    let resolved_prog = Program::new(vs);
+    // Let desugaring
+    let let_prog = let_desugaring(typed_prog)?;
 
-    println!(
-        "Resolved prog {}",
-        resolved_prog
-            .statements()
-            .iter()
-            .map(|x| {
-                match x {
-                    Statement::Expression(ex) => ex.to_string(),
-                    Statement::Definition(tag, var, def) => format!("(define {var} {def})"),
-                }
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-    );
+    let resolved_prog = sub.resolve_overloading(&let_prog, &overloading_env)?;
+
+    println!("Resolved prog {}", resolved_prog);
 
     // Alpha renaming
     let mut a1 = alphatize::Alphatizer::new();
-    let renamed_prog = a1.alphatize_program(&resolved_prog);
+    let renamed_prog = a1.alphatize(&resolved_prog, &HashMap::new());
 
-    println!(
-        "Renamed prog {}",
-        renamed_prog
-            .statements()
-            .iter()
-            .map(|x| {
-                match x {
-                    Statement::Expression(ex) => ex.to_string(),
-                    Statement::Definition(tag, var, def) => format!("(define {var} {def})"),
-                }
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
-    );
+    println!("Renamed prog {}", renamed_prog);
 
     // A-normalization
+    let a2 = anormalizer::ANormalizer::new();
+    let normalized_prog = a2.normalize_term(&renamed_prog);
+
+    println!("{:?}", normalized_prog);
 
     Err(Error::CompileError(
         "Compiler pass not yet implemented".into(),

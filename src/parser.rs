@@ -10,23 +10,71 @@ use std::collections::HashSet;
 
 /// A program is a collection of statements
 #[derive(Debug)]
-pub struct Program<T>(Vec<Statement<T>>);
-
-impl<T> Program<T> {
-    pub fn new(vs: Vec<Statement<T>>) -> Self {
-        Self(vs)
-    }
-    pub fn statements(&self) -> &Vec<Statement<T>> {
-        &self.0
-    }
+pub struct Program<T> {
+    definitions: Vec<Statement<T>>,
+    expression: Expr<T>,
 }
 
 impl TryFrom<SExprs> for Program<Position> {
     type Error = Error;
+
     fn try_from(vs: SExprs) -> Result<Self, Error> {
         let statements: Result<Vec<Statement<Position>>, Error> =
             vs.list().iter().map(Statement::parse).collect();
-        Ok(Program(statements?))
+        let mut statements: Vec<Statement<Position>> = statements?;
+
+        let Some(Statement::Expression(ex)) = statements.pop() else {
+	    return Err(Error::SyntaxError("Final statement in program should be an expression".into()))
+	};
+        let mut vs = Vec::new();
+        for v in statements {
+            match v {
+                Statement::Definition(_, _, _) => vs.push(v),
+                Statement::Expression(ex) => {
+                    let pos = ex.tag();
+                    return Err(Error::SyntaxError(format!(
+                        "[{pos}]: Expression found where definition is expected"
+                    )));
+                }
+            }
+        }
+        Ok(Self {
+            definitions: vs,
+            expression: ex,
+        })
+    }
+}
+
+impl<T> Program<T> {
+    pub fn new(mut statements: Vec<Statement<T>>) -> Result<Self, Error> {
+        let Some(Statement::Expression(ex)) = statements.pop() else {
+	    return Err(Error::SyntaxError("Final statement in program should be an expression".into()))
+	};
+        let mut vs = Vec::new();
+        for v in statements {
+            match v {
+                Statement::Definition(_, _, _) => vs.push(v),
+                Statement::Expression(ex) => {
+                    return Err(Error::SyntaxError(
+                        "Expression found where definition is expected".into(),
+                    ));
+                }
+            }
+        }
+        Ok(Self {
+            definitions: vs,
+            expression: ex,
+        })
+    }
+
+    pub fn statements(&self) -> &Vec<Statement<T>> {
+        &self.definitions
+    }
+    pub fn into_statements(self) -> Vec<Statement<T>> {
+        self.definitions
+    }
+    pub fn expression(&self) -> &Expr<T> {
+        &self.expression
     }
 }
 
@@ -688,7 +736,7 @@ mod test {
             .try_into()
             .unwrap();
 
-        assert_eq!(2, prog.0.len())
+        assert_eq!(1, prog.definitions.len())
     }
 
     #[test]

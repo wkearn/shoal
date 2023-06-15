@@ -118,25 +118,6 @@ impl Alphatizer {
             Expr::Snd(tag, e) => Expr::Snd(tag.clone(), Box::new(self.alphatize(e, env))),
         }
     }
-    pub fn alphatize_program<T: Clone>(&mut self, prog: &Program<T>) -> Program<T> {
-        let mut vs = Vec::new();
-        let env = HashMap::new();
-        for statement in prog.statements() {
-            match statement {
-                Statement::Expression(ex) => {
-                    vs.push(Statement::Expression(self.alphatize(ex, &env)));
-                }
-                Statement::Definition(tag, var, body) => {
-                    vs.push(Statement::Definition(
-                        tag.clone(),
-                        var.clone(),
-                        self.alphatize(body, &env),
-                    ));
-                }
-            }
-        }
-        Program::new(vs)
-    }
 }
 
 #[cfg(test)]
