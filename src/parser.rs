@@ -6,6 +6,8 @@ use crate::parser::sexpr::{
     parser::{SExpr, SExprs},
 };
 
+use std::collections::HashSet;
+
 /// A program is a collection of statements
 #[derive(Debug)]
 pub struct Program<T>(Vec<Statement<T>>);
@@ -152,6 +154,74 @@ impl<T> Expr<T> {
             Expr::Pair(tag, _, _) => tag,
             Expr::Fst(tag, _) => tag,
             Expr::Snd(tag, _) => tag,
+        }
+    }
+
+    pub fn free_vars(&self) -> HashSet<Box<str>> {
+        match self {
+            Expr::BooleanLiteral(_, _) | Expr::IntegerLiteral(_, _) | Expr::FloatLiteral(_, _) => {
+                HashSet::new()
+            }
+            Expr::Identifier(_, s) => Some(s.clone()).into_iter().collect(),
+            Expr::Lambda(_, arg, body) => {
+                let mut fvs = body.free_vars();
+                fvs.remove(arg);
+                fvs
+            }
+            Expr::BinLambda(_, arg0, arg1, body) => {
+                let mut fvs = body.free_vars();
+                fvs.remove(arg0);
+                fvs.remove(arg1);
+                fvs
+            }
+            Expr::App(_, fun, arg) => {
+                let mut fvs = arg.free_vars();
+                fvs.extend(fun.free_vars());
+                fvs
+            }
+            Expr::BinApp(_, fun, arg0, arg1) => {
+                let mut fvs = arg1.free_vars();
+                fvs.extend(arg0.free_vars());
+                fvs.extend(fun.free_vars());
+                fvs
+            }
+            Expr::Let(_, var, def, body) => {
+                let mut fvs = body.free_vars();
+                fvs.remove(var);
+                fvs.extend(def.free_vars());
+                fvs
+            }
+            Expr::If(_, pred, conseq, alt) => {
+                let mut fvs = alt.free_vars();
+                fvs.extend(conseq.free_vars());
+                fvs.extend(pred.free_vars());
+                fvs
+            }
+            Expr::Map(_, fun, arr) => {
+                let mut fvs = fun.free_vars();
+                fvs.extend(arr.free_vars());
+                fvs
+            }
+            Expr::Reduce(_, fun, init, arr) => {
+                let mut fvs = arr.free_vars();
+                fvs.extend(init.free_vars());
+                fvs.extend(fun.free_vars());
+                fvs
+            }
+            Expr::Scan(_, fun, init, arr) => {
+                let mut fvs = arr.free_vars();
+                fvs.extend(init.free_vars());
+                fvs.extend(fun.free_vars());
+                fvs
+            }
+            Expr::Iota(_, n) => n.free_vars(),
+            Expr::Pair(_, e1, e2) => {
+                let mut fvs = e1.free_vars();
+                fvs.extend(e2.free_vars());
+                fvs
+            }
+            Expr::Fst(_, p) => p.free_vars(),
+            Expr::Snd(_, p) => p.free_vars(),
         }
     }
 }
@@ -619,5 +689,26 @@ mod test {
             .unwrap();
 
         assert_eq!(2, prog.0.len())
+    }
+
+    #[test]
+    fn free_vars() {
+        let src: SExpr = "(lambda (rate) (lambda (x) (let ((x3 (log rate))) (let ((x4 (* rate x))) (- x3 x4)))))".parse().unwrap();
+        let ex = Expr::parse(&src).unwrap();
+
+        // Free variables are the global operators log, *, -
+        assert_eq!(3, ex.free_vars().len());
+
+        let src2: SExpr = "(lambda (x) (let ((x3 (log rate))) (let ((x4 (* rate x))) (- x3 x4))))"
+            .parse()
+            .unwrap();
+        let ex2 = Expr::parse(&src2).unwrap();
+        assert_eq!(4, ex2.free_vars().len());
+
+        let src3: SExpr = "((lambda (xs) (reduce + 0 (map ((lambda (rate) (lambda (x) (let ((x3 (log rate))) (let ((x4 (* rate x))) (- x3 x4))))) 1.0) (scan + 0.0 (map (lambda (u) 1.0) xs))))) (iota n))".parse().unwrap();
+        let ex = Expr::parse(&src3).unwrap();
+
+        // Free variables are the global operators log, *, -, +, fromFloating, and the variable n
+        assert_eq!(6, ex.free_vars().len());
     }
 }
