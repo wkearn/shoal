@@ -1,5 +1,5 @@
-pub mod alphatize;
-pub mod anormalizer;
+mod alphatize;
+mod anormalizer;
 
 use crate::error::Error;
 use crate::parser::{Expr, Program, Statement};
@@ -9,11 +9,11 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 fn let_desugaring<T>(prog: Program<T>) -> Result<Expr<T>, Error> {
-    let (defs,mut ex) = prog.into_components();
+    let (defs, mut ex) = prog.into_components();
     let mut defs = defs;
-    
-    while let Some(Statement::Definition(tag,var,def)) = defs.pop() {
-	ex = Expr::Let(tag,var,Box::new(def),Box::new(ex));
+
+    while let Some(Statement::Definition(tag, var, def)) = defs.pop() {
+        ex = Expr::Let(tag, var, Box::new(def), Box::new(ex));
     }
     Ok(ex)
 }
