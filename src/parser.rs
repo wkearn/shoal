@@ -76,6 +76,9 @@ impl<T> Program<T> {
     pub fn expression(&self) -> &Expr<T> {
         &self.expression
     }
+    pub fn into_components(self) -> (Vec<Statement<T>>,Expr<T>) {
+	(self.definitions, self.expression)
+    }
 }
 
 /// A statement in a shoal program is either a definition or an expression

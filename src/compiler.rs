@@ -9,7 +9,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 fn let_desugaring<T>(prog: Program<T>) -> Result<Expr<T>, Error> {
-    todo!()
+    let (defs,mut ex) = prog.into_components();
+    let mut defs = defs;
+    
+    while let Some(Statement::Definition(tag,var,def)) = defs.pop() {
+	ex = Expr::Let(tag,var,Box::new(def),Box::new(ex));
+    }
+    Ok(ex)
 }
 
 pub fn compile<T>(prog: &Program<T>) -> Result<Program<T>, Error> {
@@ -46,6 +52,7 @@ pub fn compile<T>(prog: &Program<T>) -> Result<Program<T>, Error> {
 
     // Let desugaring
     let let_prog = let_desugaring(typed_prog)?;
+    println!("Desugared prog {}", let_prog);
 
     let resolved_prog = sub.resolve_overloading(&let_prog, &overloading_env)?;
 
