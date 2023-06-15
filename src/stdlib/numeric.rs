@@ -246,12 +246,12 @@ impl PrimitiveOp for FromFloating {
 
 impl PrimitiveUnaryOp for FromFloating {
     fn apply(&self, x: &Value) -> Result<Value, Error> {
-	if let Value::Float(x) = x {
-	    Ok(Value::Float(*x))
-	}  else {
-	    Err(Error::RuntimeError(
+        if let Value::Float(x) = x {
+            Ok(Value::Float(*x))
+        } else {
+            Err(Error::RuntimeError(
                 "Argument to operator were of the wrong type".into(),
             ))
-	}
+        }
     }
 }

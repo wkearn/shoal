@@ -14,7 +14,7 @@ fn let_desugaring<T>(prog: Program<T>) -> Result<Expr<T>, Error> {
 
 pub fn compile<T>(prog: &Program<T>) -> Result<Program<T>, Error> {
     // Type inference and annotation
-    let (mut sub, type_env, mut overloading_env, _, _) = crate::stdlib::initialize();
+    let (mut sub, type_env, overloading_env, _, _) = crate::stdlib::initialize();
     let mut type_env = Rc::new(type_env);
 
     let mut vs: Vec<Statement<Type>> = Vec::new();

@@ -713,7 +713,6 @@ pub fn initialize() -> (
         ],
     );
 
-
     // fromFloating
     let ops: Vec<Box<str>> = Some("fromFloating".into()).into_iter().collect();
     let mut hs = Vec::new();
@@ -729,51 +728,54 @@ pub fn initialize() -> (
         ),
     );
 
-    sub.insert_overload("fromFloating".into(), vec!["Float32".into(), "Float64".into()]);
+    sub.insert_overload(
+        "fromFloating".into(),
+        vec!["Float32".into(), "Float64".into()],
+    );
 
-    overloading_env.insert("fromFloating".into(), vec![
-	    Expr::Identifier(
+    overloading_env.insert(
+        "fromFloating".into(),
+        vec![
+            Expr::Identifier(
                 Type::Function(Box::new(Type::Float64), Box::new(Type::Float32)),
                 "fromFloatingf32".into(),
             ),
-	    Expr::Identifier(
+            Expr::Identifier(
                 Type::Function(Box::new(Type::Float64), Box::new(Type::Float64)),
                 "fromFloatingf64".into(),
-            ),           
-        ]);
+            ),
+        ],
+    );
 
-    env.insert("fromFloating".into(), Value::PrimitiveFunction("fromFloating".into()));
+    env.insert(
+        "fromFloating".into(),
+        Value::PrimitiveFunction("fromFloating".into()),
+    );
     prims.insert("fromFloating".into(), numeric::FromFloating);
 
     // f32tof32 converts Float32 to Float32
     type_env.insert(
         "f32tof32".into(),
-        TypeScheme::PlainType(
-            Type::Function(
-                Box::new(Type::Float32),
-                Box::new(Type::Float32)
-            ),
-        ),
+        TypeScheme::PlainType(Type::Function(
+            Box::new(Type::Float32),
+            Box::new(Type::Float32),
+        )),
     );
     type_env.insert(
         "f32tof64".into(),
-        TypeScheme::PlainType(
-            Type::Function(
-                Box::new(Type::Float32),
-                Box::new(Type::Float64)
-            ),
-        ),
+        TypeScheme::PlainType(Type::Function(
+            Box::new(Type::Float32),
+            Box::new(Type::Float64),
+        )),
     );
     type_env.insert(
         "f64tof64".into(),
-        TypeScheme::PlainType(
-            Type::Function(
-                Box::new(Type::Float64),
-                Box::new(Type::Float64)
-            ),
-        ),
+        TypeScheme::PlainType(Type::Function(
+            Box::new(Type::Float64),
+            Box::new(Type::Float64),
+        )),
     );
-    
+
     (sub, type_env, overloading_env, env, prims)
 }
 
@@ -796,15 +798,15 @@ mod test {
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
-	match t.tag() {
-	    Type::TypeVar(_, ops) => {
-		assert!(sub.is_valid_overloading(ops,&Type::Float64));
-		assert!(sub.is_valid_overloading(ops,&Type::Float32))
-	    }
-	    _ => {
-		panic!("Ambiguous floating point expression should resolve to a TypeVar")
-	    }
-	}
+        match t.tag() {
+            Type::TypeVar(_, ops) => {
+                assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                assert!(sub.is_valid_overloading(ops, &Type::Float32))
+            }
+            _ => {
+                panic!("Ambiguous floating point expression should resolve to a TypeVar")
+            }
+        }
     }
 
     #[test]
@@ -820,15 +822,15 @@ mod test {
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
-	match t.tag() {
-	    Type::TypeVar(_, ops) => {
-		assert!(sub.is_valid_overloading(ops,&Type::Float64));
-		assert!(sub.is_valid_overloading(ops,&Type::Float32))
-	    }
-	    _ => {
-		panic!("Ambiguous floating point expression should resolve to a TypeVar")
-	    }
-	}
+        match t.tag() {
+            Type::TypeVar(_, ops) => {
+                assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                assert!(sub.is_valid_overloading(ops, &Type::Float32))
+            }
+            _ => {
+                panic!("Ambiguous floating point expression should resolve to a TypeVar")
+            }
+        }
 
         //
         let expr = Expr::parse(
@@ -856,15 +858,15 @@ mod test {
 
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
-	match t.tag() {
-	    Type::TypeVar(_, ops) => {
-		assert!(sub.is_valid_overloading(ops,&Type::Float64));
-		assert!(sub.is_valid_overloading(ops,&Type::Float32))
-	    }
-	    _ => {
-		panic!("Ambiguous floating point expression should resolve to a TypeVar")
-	    }
-	}
+        match t.tag() {
+            Type::TypeVar(_, ops) => {
+                assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                assert!(sub.is_valid_overloading(ops, &Type::Float32))
+            }
+            _ => {
+                panic!("Ambiguous floating point expression should resolve to a TypeVar")
+            }
+        }
 
         //
         let expr = Expr::parse(

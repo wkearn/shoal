@@ -54,7 +54,7 @@ impl<T> Program<T> {
         for v in statements {
             match v {
                 Statement::Definition(_, _, _) => vs.push(v),
-                Statement::Expression(ex) => {
+                Statement::Expression(_) => {
                     return Err(Error::SyntaxError(
                         "Expression found where definition is expected".into(),
                     ));

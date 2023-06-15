@@ -984,15 +984,15 @@ mod test {
         let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
-	match t.tag() {
-	    Type::TypeVar(_, ops) => {
-		assert!(sub.is_valid_overloading(ops,&Type::Float64));
-		assert!(sub.is_valid_overloading(ops,&Type::Float32))
-	    }
-	    _ => {
-		panic!("Ambiguous floating point expression should resolve to a TypeVar")
-	    }
-	}
+        match t.tag() {
+            Type::TypeVar(_, ops) => {
+                assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                assert!(sub.is_valid_overloading(ops, &Type::Float32))
+            }
+            _ => {
+                panic!("Ambiguous floating point expression should resolve to a TypeVar")
+            }
+        }
 
         //
         let expr =
@@ -1026,15 +1026,15 @@ mod test {
         let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
-	match t.tag() {
-	    Type::TypeVar(_, ops) => {
-		assert!(sub.is_valid_overloading(ops,&Type::Float64));
-		assert!(sub.is_valid_overloading(ops,&Type::Float32))
-	    }
-	    _ => {
-		panic!("Ambiguous floating point expression should resolve to a TypeVar")
-	    }
-	}
+        match t.tag() {
+            Type::TypeVar(_, ops) => {
+                assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                assert!(sub.is_valid_overloading(ops, &Type::Float32))
+            }
+            _ => {
+                panic!("Ambiguous floating point expression should resolve to a TypeVar")
+            }
+        }
 
         //
         let expr = Expr::parse(&"(if true 1 2)".parse::<SExpr>().unwrap()).unwrap();
@@ -1057,7 +1057,7 @@ mod test {
         //
         let expr = Expr::parse(&"(if true 1.0 1)".parse::<SExpr>().unwrap()).unwrap();
 
-	let (mut sub, env, _, _, _) = crate::stdlib::initialize();
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         match sub.reconstruct(&expr, Rc::new(env)).unwrap_err() {
             Error::TypeError(_) => {}
             _ => panic!("Expected test to throw TypeError"),
@@ -1066,7 +1066,7 @@ mod test {
         //
         let expr = Expr::parse(&"(if 2.0 1 2)".parse::<SExpr>().unwrap()).unwrap();
 
-	let (mut sub, env, _, _, _) = crate::stdlib::initialize();        
+        let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         match sub.reconstruct(&expr, Rc::new(env)).unwrap_err() {
             Error::TypeError(_) => {}
             e => panic!("Expected test to throw TypeError, got {e}"),
@@ -1213,15 +1213,15 @@ mod test {
         let (mut sub, env, _, _, _) = crate::stdlib::initialize();
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
 
-	match t.tag() {
-	    Type::TypeVar(_, ops) => {
-		assert!(sub.is_valid_overloading(ops,&Type::Float64));
-		assert!(sub.is_valid_overloading(ops,&Type::Float32))
-	    }
-	    _ => {
-		panic!("Ambiguous floating point expression should resolve to a TypeVar")
-	    }
-	}
+        match t.tag() {
+            Type::TypeVar(_, ops) => {
+                assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                assert!(sub.is_valid_overloading(ops, &Type::Float32))
+            }
+            _ => {
+                panic!("Ambiguous floating point expression should resolve to a TypeVar")
+            }
+        }
     }
 
     #[test]
@@ -1288,7 +1288,7 @@ mod test {
             )),
         );
 
-	env.insert(
+        env.insert(
             "fromFloatingf32".into(),
             crate::types::TypeScheme::PlainType(Type::Function(
                 Box::new(Type::Float64),
@@ -1296,7 +1296,7 @@ mod test {
             )),
         );
 
-	env.insert(
+        env.insert(
             "fromFloatingf64".into(),
             crate::types::TypeScheme::PlainType(Type::Function(
                 Box::new(Type::Float64),
@@ -1375,18 +1375,16 @@ mod test {
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         let t = sub.substitute(t);
 
-	match t.tag() {
-	    Type::Array(arr) => {
-		match &**arr {
-		    Type::TypeVar(_, ops) => {
-			assert!(sub.is_valid_overloading(ops,&Type::Float64));
-			assert!(sub.is_valid_overloading(ops,&Type::Float32))
-		    }
-		    _ => panic!("Ambiguous floating point expression should resolve to a TypeVar")
-		}
-	    }
-	    _ => panic!("Expected array type")
-	}
+        match t.tag() {
+            Type::Array(arr) => match &**arr {
+                Type::TypeVar(_, ops) => {
+                    assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                    assert!(sub.is_valid_overloading(ops, &Type::Float32))
+                }
+                _ => panic!("Ambiguous floating point expression should resolve to a TypeVar"),
+            },
+            _ => panic!("Expected array type"),
+        }
 
         let expr = Expr::parse(
             &"(reduce (lambda (u v) (exp v)) 0.0 (map (lambda (u) 0.0) (iota 10)))"
@@ -1399,14 +1397,13 @@ mod test {
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         let t = sub.substitute(t);
 
-
-	match t.tag() {
-	    Type::TypeVar(_, ops) => {
-		assert!(sub.is_valid_overloading(ops,&Type::Float64));
-		assert!(sub.is_valid_overloading(ops,&Type::Float32))
-	    }
-	    _ => panic!("Ambiguous floating point expression should resolve to a TypeVar")
-	}
+        match t.tag() {
+            Type::TypeVar(_, ops) => {
+                assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                assert!(sub.is_valid_overloading(ops, &Type::Float32))
+            }
+            _ => panic!("Ambiguous floating point expression should resolve to a TypeVar"),
+        }
 
         let expr = Expr::parse(
             &"(scan (lambda (u v) (exp v)) 0.0 (map (lambda (u) 0.0) (iota 10)))"
@@ -1419,17 +1416,15 @@ mod test {
         let t = sub.reconstruct(&expr, Rc::new(env)).unwrap();
         let t = sub.substitute(t);
 
-	match t.tag() {
-	    Type::Array(arr) => {
-		match &**arr {
-		    Type::TypeVar(_, ops) => {
-			assert!(sub.is_valid_overloading(ops,&Type::Float64));
-			assert!(sub.is_valid_overloading(ops,&Type::Float32))
-		    }
-		    _ => panic!("Ambiguous floating point expression should resolve to a TypeVar")
-		}
-	    }
-	    _ => panic!("Expected array type")
-	}
+        match t.tag() {
+            Type::Array(arr) => match &**arr {
+                Type::TypeVar(_, ops) => {
+                    assert!(sub.is_valid_overloading(ops, &Type::Float64));
+                    assert!(sub.is_valid_overloading(ops, &Type::Float32))
+                }
+                _ => panic!("Ambiguous floating point expression should resolve to a TypeVar"),
+            },
+            _ => panic!("Expected array type"),
+        }
     }
 }

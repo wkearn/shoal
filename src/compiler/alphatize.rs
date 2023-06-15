@@ -1,5 +1,4 @@
-use crate::error::Error;
-use crate::parser::{Expr, Program, Statement};
+use crate::parser::Expr;
 
 use std::collections::HashMap;
 
